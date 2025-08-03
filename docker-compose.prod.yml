@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  # Next.js Application (Frontend + Backend)
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    container_name: medibot-app-prod
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - JWT_SECRET=${JWT_SECRET}
+      - AI_SERVICE_API_KEY=${AI_SERVICE_API_KEY}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
+      - NEXTAUTH_URL=${NEXTAUTH_URL}
+    restart: unless-stopped
+    networks:
+      - medibot-network
+
+networks:
+  medibot-network:
+    driver: bridge
