@@ -1,92 +1,209 @@
 # MediBot Project Management
 
-This directory contains management scripts and tools for the MediBot project development workflow.
+This directory contains scripts and documentation for managing the MediBot development workflow using Git worktrees and feature completion processes.
 
-## Git Worktree Management
+## Scripts Overview
 
-The `manage-worktrees.sh` script helps manage multiple git worktrees for parallel development on different features.
+### 1. `manage-worktrees.sh` - Worktree Management
+Handles creation, management, and coordination of multiple Git worktrees for parallel development.
 
-### Current Worktrees
+**Key Features:**
+- Create and remove worktrees for different features
+- Sync all worktrees with main branch
+- Show status and task mapping
+- Open worktrees in IDE/terminal
 
-The project is set up with the following worktrees for parallel development:
-
-| Worktree | Branch | Tasks | Description |
-|----------|--------|-------|-------------|
-| `docker-setup` | `feature/docker-setup` | 1, 2.1 | Project structure and Docker environment setup |
-| `database-layer` | `feature/database-layer` | 2.2-2.4 | Data models and repository implementations |
-| `backend-api` | `feature/backend-api` | 3, 4 | Authentication, security, and core API services |
-| `conversational-ai` | `feature/conversational-ai` | 5, 6 | AI conversation system and NLP processing |
-| `patient-interface` | `feature/patient-interface` | 7 | React chat UI and patient-facing features |
-| `doctor-interface` | `feature/doctor-interface` | 8 | Doctor dashboard and consultation management |
-
-### Usage
-
-From the project root directory:
-
+**Usage:**
 ```bash
-# Show all worktrees
-./management/manage-worktrees.sh list
-
-# Show status of all branches
-./management/manage-worktrees.sh status
-
-# Show task mapping
-./management/manage-worktrees.sh tasks
-
-# Open a specific worktree in new terminal/IDE
-./management/manage-worktrees.sh open docker-setup
-
-# Sync all worktrees with main branch
-./management/manage-worktrees.sh sync
-
-# Push all clean feature branches
-./management/manage-worktrees.sh push
-
-# Create a new worktree
-./management/manage-worktrees.sh create new-feature
-
-# Remove a worktree
-./management/manage-worktrees.sh remove old-feature
-
-# Show help
-./management/manage-worktrees.sh help
+./management/manage-worktrees.sh list          # Show all worktrees
+./management/manage-worktrees.sh create auth   # Create new worktree
+./management/manage-worktrees.sh sync          # Sync all with main
+./management/manage-worktrees.sh tasks         # Show task mapping
 ```
 
-### Workflow
+### 2. `feature-completion.sh` - Feature Completion Workflow
+Comprehensive script for completing features and cleaning up development environment.
 
-1. **Start Development**: Use `open <worktree>` to begin work on a specific feature
-2. **Regular Sync**: Use `sync` to keep all worktrees updated with main branch
-3. **Push Changes**: Use `push` to push all completed feature branches
-4. **Status Check**: Use `status` to see which worktrees have uncommitted changes
+**Complete Workflow:**
+1. **Update Specs & Todos** - Mark completed tasks in spec files
+2. **Create Comprehensive PR** - Generate detailed PR with GitHub CLI
+3. **Wait for Merge** - Interactive wait for PR approval and merge
+4. **Cleanup** - Remove worktree, delete branches, clean up Git
+5. **Next Feature** - Optionally create new worktree for next feature
+
+**Usage:**
+```bash
+./management/feature-completion.sh complete docker-setup  # Full workflow
+./management/feature-completion.sh status                 # Show status
+./management/feature-completion.sh cleanup auth          # Cleanup only
+```
+
+## Development Workflow
+
+### Starting a New Feature
+
+1. **Create Worktree:**
+   ```bash
+   ./management/manage-worktrees.sh create feature-name
+   ```
+
+2. **Open in IDE:**
+   ```bash
+   ./management/manage-worktrees.sh open feature-name
+   ```
+
+3. **Check Task Mapping:**
+   ```bash
+   ./management/manage-worktrees.sh tasks
+   ```
+
+### During Development
+
+1. **Sync with Main Regularly:**
+   ```bash
+   ./management/manage-worktrees.sh sync
+   ```
+
+2. **Check Status:**
+   ```bash
+   ./management/manage-worktrees.sh status
+   ```
+
+3. **Push Changes:**
+   ```bash
+   ./management/manage-worktrees.sh push
+   ```
+
+### Completing a Feature
+
+1. **Run Complete Workflow:**
+   ```bash
+   ./management/feature-completion.sh complete feature-name
+   ```
+
+2. **Follow Interactive Prompts:**
+   - Specify completed tasks
+   - Review generated PR
+   - Wait for PR merge
+   - Confirm cleanup
+
+3. **Optional: Create Next Feature:**
+   - Script will offer to create next worktree
+   - Choose from predefined features or custom name
+
+## Feature Mapping
+
+Current worktree-to-task mapping:
+
+| Worktree | Tasks | Description |
+|----------|-------|-------------|
+| `docker-setup` | 1, 2.1 | Project structure and Docker environment |
+| `database-layer` | 2.2, 2.3, 2.4 | Patient, Anamnesis, and Consultation models |
+| `backend-api` | 3, 4 | Authentication and core API services |
+| `conversational-ai` | 5, 6 | AI conversation system and NLP processing |
+| `patient-interface` | 7 | React chat UI and accessibility features |
+| `doctor-interface` | 8 | Doctor dashboard and consultation management |
+
+## Prerequisites
+
+### Required Tools
+
+1. **Git** - Version control with worktree support
+2. **GitHub CLI** - For PR creation and management
+   ```bash
+   brew install gh
+   gh auth login
+   ```
+
+3. **Node.js/npm** - For running the application
+4. **Docker** - For containerized development
 
 ### Directory Structure
 
+The scripts expect this directory structure:
 ```
-project-root/
-├── management/
-│   ├── manage-worktrees.sh    # Worktree management script
-│   └── README.md              # This file
-└── ../medibot-worktrees/      # Worktree directories
-    ├── docker-setup/
-    ├── database-layer/
-    ├── backend-api/
-    ├── conversational-ai/
-    ├── patient-interface/
-    └── doctor-interface/
+medibot-project/                    # Main repository
+├── management/                     # Management scripts
+├── .kiro/specs/                   # Specification files
+└── ...
+
+medibot-worktrees/                 # Worktrees directory (sibling)
+├── docker-setup/                 # Feature worktree
+├── database-layer/               # Feature worktree
+└── ...
 ```
 
-### Benefits of This Setup
+## PR Template
 
-- **Parallel Development**: Work on multiple features simultaneously
-- **Context Switching**: Each worktree maintains its own working directory and branch state
-- **Reduced Conflicts**: Separate environments prevent merge conflicts during development
-- **Easy Testing**: Test different features independently
-- **Organized Workflow**: Clear separation of concerns across different development streams
+The feature completion script generates comprehensive PRs with:
 
-### Tips
+- **Feature Overview** - Clear description of what was implemented
+- **Tasks Completed** - Checklist of completed spec tasks
+- **Changes Made** - Auto-generated commit summary
+- **Testing Checklist** - Unit, integration, and manual testing
+- **Documentation** - Code comments and documentation updates
+- **Review Checklist** - Code standards and security considerations
+- **Related Issues** - Links to specs and issues
 
-- Each worktree is a complete working directory with its own branch
-- Changes in one worktree don't affect others
-- Use the sync command regularly to stay updated with main branch
-- The script automatically handles terminal/IDE opening on macOS
-- All worktrees share the same Git repository and history
+## Best Practices
+
+### Development
+- Keep worktrees focused on specific feature sets
+- Sync with main branch regularly to avoid conflicts
+- Write comprehensive commit messages
+- Test thoroughly before marking feature complete
+
+### Feature Completion
+- Update spec files to mark completed tasks
+- Ensure all tests pass before creating PR
+- Review PR description and add screenshots if needed
+- Wait for proper code review before merging
+- Clean up promptly after merge to keep environment tidy
+
+### Branch Management
+- Use descriptive branch names (feature/docker-setup)
+- Delete branches after successful merge
+- Keep main branch clean and deployable
+- Use draft PRs for work-in-progress features
+
+## Troubleshooting
+
+### Common Issues
+
+1. **GitHub CLI Not Authenticated:**
+   ```bash
+   gh auth login
+   ```
+
+2. **Worktree Directory Conflicts:**
+   ```bash
+   rm -rf ../medibot-worktrees/conflicted-branch
+   git worktree prune
+   ```
+
+3. **Branch Not Merged:**
+   - Check PR status on GitHub
+   - Ensure all checks pass
+   - Get required approvals
+
+4. **Permission Issues:**
+   ```bash
+   chmod +x management/*.sh
+   ```
+
+### Getting Help
+
+- Run any script with `help` argument for usage information
+- Check script output for detailed error messages
+- Review Git worktree documentation for advanced usage
+
+## Integration with Kiro
+
+These scripts integrate with Kiro's development workflow:
+
+- **Specs Integration** - Updates `.kiro/specs/` files automatically
+- **Task Tracking** - Maps worktrees to specific spec tasks
+- **Automated Cleanup** - Maintains clean development environment
+- **Documentation** - Generates comprehensive PR documentation
+
+The workflow supports Kiro's autonomous development modes while maintaining human oversight for critical decisions like PR merging and feature planning.
