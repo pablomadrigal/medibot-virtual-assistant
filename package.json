@@ -11,7 +11,9 @@
     "type-check": "tsc --noEmit",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "pre-push": "./scripts/pre-push.sh",
+    "ci": "npm run type-check && npm run lint && npm run test:coverage && npm run build"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.1",
