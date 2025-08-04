@@ -8,18 +8,18 @@ import {
 } from '@/lib/api/transformers'
 import { isValidUUID } from '@/lib/api/middleware'
 
-// GET /api/patients/[patientId]/anamnesis - Get all anamnesis records for a specific patient
+// GET /api/patients/[id]/anamnesis - Get all anamnesis records for a specific patient
 export async function GET(
   request: NextRequest,
-  { params }: { params: { patientId: string } }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const { patientId } = params
+    const { id } = params
     const { searchParams } = new URL(request.url)
     const paginationParams = parsePaginationParams(searchParams)
 
     // Validate UUID format
-    if (!isValidUUID(patientId)) {
+    if (!isValidUUID(id)) {
       const errorResponse = formatErrorResponse(
         'INVALID_PATIENT_ID',
         'Invalid patient ID format'

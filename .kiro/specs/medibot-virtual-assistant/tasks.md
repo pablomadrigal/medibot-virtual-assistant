@@ -129,7 +129,7 @@ Use `./management/feature-completion.sh complete <branch-name>` to automatically
 
 - [x] 4.2 Implement Anamnesis Service API
   - ✅ Created REST endpoints for anamnesis management (POST, GET, PUT, DELETE /api/anamnesis)
-  - ✅ Added patient-specific anamnesis endpoint (GET /api/patients/[patientId]/anamnesis)
+  - ✅ Added patient-specific anamnesis endpoint (GET /api/patients/[id]/anamnesis)
   - ✅ Implemented comprehensive medical data validation with healthcare-specific logic
   - ✅ Created medical validation utilities for symptoms, duration, and reason validation
   - ✅ Added urgent symptom detection and medical warnings system
@@ -140,7 +140,7 @@ Use `./management/feature-completion.sh complete <branch-name>` to automatically
   - ✅ Added 17 additional tests for medical validation utilities
   - ✅ Implemented chronic condition detection and duration format validation
   - _Requirements: 2.2, 3.2, 4.2_
-  - **Files Created:** `src/app/api/anamnesis/route.ts`, `src/app/api/anamnesis/[id]/route.ts`, `src/app/api/patients/[patientId]/anamnesis/route.ts`, `src/lib/medical/validation.ts`, comprehensive test suites
+  - **Files Created:** `src/app/api/anamnesis/route.ts`, `src/app/api/anamnesis/[id]/route.ts`, `src/app/api/patients/[id]/anamnesis/route.ts`, `src/lib/medical/validation.ts`, comprehensive test suites
 
 - [ ] 4.3 Implement Doctor Interface Service API
   - Create endpoints for consultation management (GET /api/consultations/pending, PUT /api/consultations/{id}/review)
