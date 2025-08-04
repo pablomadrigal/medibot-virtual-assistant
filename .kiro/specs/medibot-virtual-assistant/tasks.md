@@ -48,8 +48,8 @@ Use `./management/feature-completion.sh complete <branch-name>` to automatically
   - Write unit tests for Consultation model and repository operations
   - _Requirements: 3.1, 5.1, 7.4_
 
-- [ ] 3. Create authentication and security infrastructure
-- [ ] 3.1 Implement JWT authentication service for Docker environment
+- [x] 3. Create authentication and security infrastructure
+- [x] 3.1 Implement JWT authentication service for Docker environment
   - Create JWT token generation and validation utilities with Docker-compatible configuration
   - Implement role-based access control with user permissions
   - Add middleware for protecting API endpoints with environment variable configuration
@@ -57,7 +57,7 @@ Use `./management/feature-completion.sh complete <branch-name>` to automatically
   - Write unit tests for authentication logic
   - _Requirements: 7.2, 7.3_
 
-- [ ] 3.2 Implement data encryption and security utilities
+- [x] 3.2 Implement data encryption and security utilities
   - Create encryption/decryption services for patient data at rest
   - Implement input validation and sanitization middleware
   - Add CORS configuration and security headers
