@@ -44,9 +44,14 @@ jobs:
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/medibot_test
       REDIS_URL: redis://localhost:6379
-      JWT_SECRET: test-jwt-secret-key
-      ENCRYPTION_KEY: test-encryption-key-for-ci
+      JWT_SECRET: ${{ secrets.JWT_SECRET_TEST || 'test-jwt-secret-for-ci-only' }}
+      ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY_TEST || 'test-encryption-key-for-ci-only' }}
       NODE_ENV: test
+      # Fix SWC transformer issues in CI
+      NEXT_TELEMETRY_DISABLED: 1
+      CI: true
+      # Node.js options to help with memory and performance
+      NODE_OPTIONS: "--max-old-space-size=4096"
     
     steps:
     - name: Checkout code
@@ -68,20 +73,8 @@ jobs:
         echo "Waiting for Redis..."
         until redis-cli -h localhost -p 6379 ping; do sleep 1; done
         
-    - name: Run Patient API Tests
-      run: npm test -- src/app/api/patients --coverage --watchAll=false
-      
-    - name: Run Anamnesis API Tests
-      run: npm test -- src/app/api/anamnesis --coverage --watchAll=false
-      
-    - name: Run Authentication Tests
-      run: npm test -- src/lib/auth --coverage --watchAll=false
-      
-    - name: Run Security Tests
-      run: npm test -- src/lib/security --coverage --watchAll=false
-      
-    - name: Run Medical Validation Tests
-      run: npm test -- src/lib/medical --coverage --watchAll=false
+    - name: Run All Tests
+      run: npm run test:ci
       
     - name: Generate API Test Report
       run: |
