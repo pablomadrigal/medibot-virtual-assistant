@@ -1,0 +1,16 @@
+{
+  "enabled": true,
+  "name": "Pre-commit Test Runner",
+  "description": "Automatically runs all available tests whenever a commit is created to ensure all code is correct before upload",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      ".git/COMMIT_EDITMSG"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "A commit is being created. Please run all available tests to ensure the code is correct before the upload. Execute the test suite using npm test or yarn test, check for any failures, and report the results. If tests fail, provide details about what needs to be fixed."
+  }
+}
