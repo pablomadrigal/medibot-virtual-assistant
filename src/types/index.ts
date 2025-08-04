@@ -44,3 +44,39 @@ export interface ConversationState {
   lastMessage: string;
   isComplete: boolean;
 }
+
+// Authentication types
+export interface User {
+  id: string;
+  email: string;
+  role: 'patient' | 'doctor' | 'admin';
+  name: string;
+  createdAt: Date;
+  updatedAt: Date;
+  lastLoginAt?: Date;
+}
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface LoginResponse {
+  user: User;
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
+}
+
+export interface RefreshTokenRequest {
+  refreshToken: string;
+}
+
+export interface APIError {
+  error: {
+    code: string;
+    message: string;
+    details?: any;
+    timestamp: string;
+  };
+}

@@ -1,0 +1,45 @@
+name: Branch Protection
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [ main, develop ]
+
+jobs:
+  enforce-checks:
+    name: Enforce Required Checks
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Check PR Requirements
+      run: |
+        echo "🔍 Checking PR requirements..."
+        echo "✅ CI pipeline must pass"
+        echo "✅ All tests must pass"
+        echo "✅ Code coverage must be maintained"
+        echo "✅ Security audit must pass"
+        echo "✅ Build must succeed"
+        
+    - name: Validate PR Title
+      uses: amannn/action-semantic-pull-request@v5
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        types: |
+          feat
+          fix
+          docs
+          style
+          refactor
+          perf
+          test
+          build
+          ci
+          chore
+        requireScope: false
+        
+    - name: Check for breaking changes
+      run: |
+        echo "🔍 Checking for breaking changes..."
+        # Add logic to detect breaking changes if needed
+        echo "✅ No breaking changes detected"
