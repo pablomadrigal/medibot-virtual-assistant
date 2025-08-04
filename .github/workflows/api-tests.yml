@@ -21,7 +21,7 @@ jobs:
       postgres:
         image: postgres:15
         env:
-          POSTGRES_PASSWORD: postgres
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD || 'test-postgres-password' }}
           POSTGRES_DB: medibot_test
         options: >-
           --health-cmd pg_isready
