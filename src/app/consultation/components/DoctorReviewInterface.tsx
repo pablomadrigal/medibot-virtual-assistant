@@ -217,13 +217,13 @@ export const DoctorReviewInterface: React.FC<DoctorReviewInterfaceProps> = ({
 
             {/* Clinical Guidelines */}
             <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
-              <h4 className="font-medium text-blue-900 mb-2">Clinical Guidelines</h4>
+              <h4 className="font-medium text-blue-900 mb-2">Directrices Clínicas</h4>
               <ul className="text-sm text-blue-800 space-y-1">
-                <li>• Consider patient&apos;s age, gender, and medical history</li>
-                <li>• Evaluate symptom severity and duration</li>
-                <li>• Review current medications for interactions</li>
-                <li>• Assess need for immediate intervention</li>
-                <li>• Consider referral to specialists if needed</li>
+                <li>• Considera la edad, género e historial médico del paciente</li>
+                <li>• Evalúa la severidad y duración de los síntomas</li>
+                <li>• Revisa los medicamentos actuales para interacciones</li>
+                <li>• Evalúa la necesidad de intervención inmediata</li>
+                <li>• Considera la derivación a especialistas si es necesario</li>
               </ul>
             </div>
 
@@ -233,7 +233,7 @@ export const DoctorReviewInterface: React.FC<DoctorReviewInterfaceProps> = ({
                 type="submit"
                 className="w-full bg-blue-600 text-white py-3 px-6 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
               >
-                Generate Treatment Recommendations
+                Generar Recomendaciones de Tratamiento
               </button>
             </div>
           </form>
