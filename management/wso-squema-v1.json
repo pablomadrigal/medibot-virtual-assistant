@@ -1,0 +1,105 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Workflow State Object (WSO) for Medical EHR Agent",
+    "description": "A dynamic object that tracks the state of an EHR documentation workflow.",
+    "type": "object",
+    "properties": {
+      "workflow_id": {
+        "type": "string",
+        "format": "uuid",
+        "description": "Unique identifier for this entire workflow instance."
+      },
+      "schema_version": {
+        "type": "string",
+        "pattern": "^\\d+\\.\\d+\\.\\d+$",
+        "description": "Semantic version of this WSO schema."
+      },
+      "patient_id": {
+        "type": "string",
+        "description": "The unique identifier for the patient."
+      },
+      "clinician_id": {
+        "type": "string",
+        "description": "The unique identifier for the clinician."
+      },
+      "encounter_details": {
+        "type": "object",
+        "properties": {
+          "encounter_id": { "type": "string", "format": "uuid" },
+          "encounter_timestamp": { "type": "string", "format": "date-time" },
+          "status": {
+            "type": "string",
+            "enum": ["in_progress", "pending_review", "completed", "error"],
+            "description": "The current status of the workflow."
+          }
+        },
+        "required": ["encounter_id", "encounter_timestamp", "status"]
+      },
+      "workflow_inputs": {
+        "type": "array",
+        "description": "An audit trail of all inputs received during the workflow.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "source": { "type": "string", "description": "Origin of the input (e.g., 'clinician', 'agent_1')." },
+            "type": { "type": "string", "description": "Type of input (e.g., 'audio_stream_uri', 'text_correction')." },
+            "content": {},
+            "timestamp": { "type": "string", "format": "date-time" }
+          },
+          "required": ["source", "type", "content", "timestamp"]
+        }
+      },
+      "agent_outputs": {
+        "type": "object",
+        "description": "A container for the outputs of each agent, namespaced by agent ID.",
+        "properties": {
+          "scribe_agent": {
+            "type": "object",
+            "properties": {
+              "raw_transcript": { "type": "string" },
+              "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+              "timestamp": { "type": "string", "format": "date-time" }
+            }
+          },
+          "extractor_agent": {
+            "type": "object",
+            "properties": {
+              "structured_data": {
+                "type": "object",
+                "properties": {
+                  "symptoms": { "type": "array", "items": { "type": "string" } },
+                  "diagnoses": { "type": "array", "items": { "type": "string" } },
+                  "medications": { "type": "array", "items": { "type": "object" } }
+                }
+              },
+              "retrieved_context": { "type": "array", "items": { "type": "string" } },
+              "alerts": { "type": "array", "items": { "type": "string" } },
+              "timestamp": { "type": "string", "format": "date-time" }
+            }
+          }
+        }
+      },
+      "final_summary": {
+        "type": "object",
+        "properties": {
+          "ehr_note_draft": { "type": "string" },
+          "patient_summary": { "type": "string" },
+          "suggested_billing_codes": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "validation": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": ["unvalidated", "validated_by_clinician", "rejected"],
+            "default": "unvalidated"
+          },
+          "validator_id": { "type": "string" },
+          "validation_notes": { "type": "string" },
+          "timestamp": { "type": "string", "format": "date-time" }
+        }
+      }
+    },
+    "required": ["workflow_id", "schema_version", "patient_id", "clinician_id", "encounter_details"]
+  }
