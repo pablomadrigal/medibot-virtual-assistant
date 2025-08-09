@@ -3,8 +3,8 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-# Install Yarn
-RUN npm install -g yarn
+# Ensure Yarn is available (overwrite if preinstalled to avoid EEXIST)
+RUN npm install -g yarn@1.22.22 --force
 
 # Install dependencies
 COPY package.json yarn.lock* ./

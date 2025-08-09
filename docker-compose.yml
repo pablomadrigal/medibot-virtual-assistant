@@ -28,6 +28,17 @@ services:
     networks:
       - medibot-network
 
+  # LiveKit Server
+  livekit:
+    image: livekit/livekit-server:latest
+    container_name: medibot-livekit
+    command: ["--dev"]
+    ports:
+      - "7880:7880"   # HTTP/WS API and signaling
+      - "7881:7881/udp" # WebRTC media (UDP)
+    networks:
+      - medibot-network
+
   # Next.js Application (Frontend + Backend)
   app:
     build:
@@ -44,6 +55,9 @@ services:
       - AI_SERVICE_API_KEY=your-ai-service-api-key
       - NEXTAUTH_SECRET=your-nextauth-secret-key
       - NEXTAUTH_URL=http://localhost:3000
+      - NEXT_PUBLIC_LIVEKIT_URL=ws://livekit:7880
+      - LIVEKIT_API_KEY=devkey
+      - LIVEKIT_API_SECRET=secret
     volumes:
       - .:/app
       - /app/node_modules
@@ -51,6 +65,7 @@ services:
     depends_on:
       - postgres
       - redis
+      - livekit
     networks:
       - medibot-network
 
