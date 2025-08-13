@@ -42,10 +42,12 @@ export {
 };
 
 // Default export for convenience
-export default {
+const securityModule = {
   EncryptionService,
   InputSanitizer,
   CORSService,
   SecurityHeadersService,
   validationSchemas
 };
+
+export default securityModule;

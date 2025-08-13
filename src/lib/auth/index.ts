@@ -42,8 +42,10 @@ export {
 export { authConfig, dockerConfig, validateAuthConfig, type AuthConfig };
 
 // Default export for convenience
-export default {
+const authModule = {
   JWTService,
   RBACService,
   authConfig
 };
+
+export default authModule;
