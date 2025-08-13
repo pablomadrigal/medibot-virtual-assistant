@@ -16,7 +16,7 @@
     "test:unit": "jest --testPathIgnorePatterns='src/app/api' --watchAll=false",
     "test:api": "jest src/app/api --watchAll=false",
     "pre-push": "./scripts/pre-push.sh",
-    "ci": "npm run type-check && npm run lint && npm run test:coverage && npm run build"
+    "ci": "yarn type-check && yarn lint && yarn test:coverage && yarn build"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.1",
@@ -41,6 +41,7 @@
     "lucide-react": "^0.536.0",
     "next": "^14.0.0",
     "next-auth": "^4.24.11",
+    "openai": "^5.12.0",
     "pg": "^8.16.3",
     "postcss": "^8.4.0",
     "react": "^18.2.0",
