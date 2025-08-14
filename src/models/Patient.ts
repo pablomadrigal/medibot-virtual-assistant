@@ -20,6 +20,42 @@ export const CreatePatientSchema = PatientSchema.omit({
 export type Patient = z.infer<typeof PatientSchema>
 export type CreatePatientData = z.infer<typeof CreatePatientSchema>
 
+// Patient class for database operations
+export class PatientEntity {
+  constructor(
+    public id?: string,
+    public name: string = '',
+    public dateOfBirth: string = '',
+    public encryptedData?: any,
+    public createdAt?: Date,
+    public updatedAt?: Date
+  ) {}
+
+  // Convert to Patient type
+  toPatient(): Patient {
+    return {
+      id: this.id,
+      name: this.name,
+      dateOfBirth: this.dateOfBirth,
+      encryptedData: this.encryptedData,
+      createdAt: this.createdAt,
+      updatedAt: this.updatedAt
+    }
+  }
+
+  // Create from Patient type
+  static fromPatient(patient: Patient): PatientEntity {
+    return new PatientEntity(
+      patient.id,
+      patient.name,
+      patient.dateOfBirth,
+      patient.encryptedData,
+      patient.createdAt,
+      patient.updatedAt
+    )
+  }
+}
+
 export class PatientModel {
   // Validate patient data
   static validate(data: unknown): Patient {
@@ -32,7 +68,7 @@ export class PatientModel {
 
   // Convert database row to Patient object
   static fromDatabaseRow(row: any): Patient {
-    return new Patient(
+    const entity = new PatientEntity(
       row.id,
       row.name,
       row.date_of_birth,
@@ -40,6 +76,7 @@ export class PatientModel {
       row.created_at,
       row.updated_at
     );
+    return entity.toPatient();
   }
 
   // Convert Patient object to database format

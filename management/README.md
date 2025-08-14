@@ -2,6 +2,59 @@
 
 This directory contains scripts and documentation for managing the MediBot development workflow using simplified feature branches and automated PR processes.
 
+## Semantic PR Titles and Conventional Commits
+
+To avoid semantic PR checker errors, always use conventional commit prefixes in your PR titles:
+
+### Required PR Title Format
+```
+<type>: <description>
+```
+
+### Valid Types
+- **feat:** - New features (e.g., "feat: add user authentication")
+- **fix:** - Bug fixes (e.g., "fix: resolve login validation issue")
+- **docs:** - Documentation changes (e.g., "docs: update API documentation")
+- **style:** - Code style changes (e.g., "style: format code with prettier")
+- **refactor:** - Code refactoring (e.g., "refactor: simplify authentication logic")
+- **test:** - Adding or updating tests (e.g., "test: add unit tests for auth service")
+- **chore:** - Maintenance tasks (e.g., "chore: update dependencies")
+
+### Examples
+✅ **Correct:**
+- `feat: migrate to Supabase and enhance consultation flow`
+- `fix: resolve patient data validation issue`
+- `refactor: simplify project architecture and management system`
+- `docs: update deployment instructions`
+
+❌ **Incorrect:**
+- `Migrate to Supabase and enhance consultation flow`
+- `Fix patient data validation`
+- `Update documentation`
+
+### Why This Matters
+The project uses `amannn/action-semantic-pull-request@v5` which enforces conventional commit standards. This helps with:
+- Automated changelog generation
+- Semantic versioning
+- Release automation
+- Code review consistency
+
+## Quick Reference
+
+### PR Title Format (Required)
+```
+<type>: <description>
+```
+**Examples:** `feat: add user authentication`, `fix: resolve login issue`, `refactor: simplify auth logic`
+
+### Common Types
+- `feat:` - New features
+- `fix:` - Bug fixes  
+- `refactor:` - Code refactoring
+- `docs:` - Documentation
+- `test:` - Tests
+- `chore:` - Maintenance
+
 ## Scripts Overview
 
 ### 1. `feature-branch.sh` - Feature Branch Management
