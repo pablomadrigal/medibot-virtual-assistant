@@ -11,7 +11,11 @@ export interface ConsultationData {
   prescription?: any;
 }
 
-export const ConsultationFlow: React.FC = () => {
+interface ConsultationFlowProps {
+  onBack?: () => void;
+}
+
+export const ConsultationFlow: React.FC<ConsultationFlowProps> = ({ onBack }) => {
   const [currentStep, setCurrentStep] = useState<ConsultationStep>('patient-input');
   const [consultationData, setConsultationData] = useState<ConsultationData>({});
   const [loading, setLoading] = useState(false);
@@ -61,12 +65,22 @@ export const ConsultationFlow: React.FC = () => {
                 {currentStep === 'prescription' && 'Paso 3: Prescripción'}
               </span>
             </div>
-            <button
-              onClick={resetConsultation}
-              className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-md hover:bg-gray-50"
-            >
-              Iniciar Nueva Consulta
-            </button>
+            <div className="flex items-center space-x-4">
+              {onBack && (
+                <button
+                  onClick={onBack}
+                  className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-md hover:bg-gray-50"
+                >
+                  ← Volver
+                </button>
+              )}
+              <button
+                onClick={resetConsultation}
+                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-md hover:bg-gray-50"
+              >
+                Iniciar Nueva Consulta
+              </button>
+            </div>
           </div>
         </div>
       </header>
