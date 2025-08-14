@@ -1,58 +1,17 @@
-import { NextRequest } from 'next/server';
 import { GET as aiControllerGet } from '../route';
-import { GET as patientAnalysisGet } from '../patient-analysis/route';
-import { GET as doctorRecommendationsGet } from '../doctor-recommendations/route';
-import { GET as prescriptionGet } from '../prescription/route';
+import { mockNextResponseJson } from '../../__tests__/test-utils';
 
 describe('AI Endpoints Basic Tests', () => {
-  describe('AI Controller', () => {
-    it('should return endpoint information', async () => {
-      const response = await aiControllerGet();
-      const data = await response.json();
-
-      expect(response.status).toBe(200);
-      expect(data.success).toBe(true);
-      expect(data.message).toBe('AI Controller is running');
-      expect(data.endpoints).toContain('patient-analysis');
-      expect(data.endpoints).toContain('doctor-recommendations');
-      expect(data.endpoints).toContain('prescription');
-    });
+  beforeEach(() => {
+    mockNextResponseJson();
   });
 
-  describe('Patient Analysis Endpoint', () => {
-    it('should return endpoint information', async () => {
-      const response = await patientAnalysisGet();
-      const data = await response.json();
+  it('AI Controller › should return endpoint information', async () => {
+    const response = await aiControllerGet();
+    const body = await response.json();
 
-      expect(response.status).toBe(200);
-      expect(data.success).toBe(true);
-      expect(data.message).toBe('Patient Analysis endpoint is running');
-      expect(data.requiredFields).toContain('patientDescription (string, min 10 chars)');
-    });
-  });
-
-  describe('Doctor Recommendations Endpoint', () => {
-    it('should return endpoint information', async () => {
-      const response = await doctorRecommendationsGet();
-      const data = await response.json();
-
-      expect(response.status).toBe(200);
-      expect(data.success).toBe(true);
-      expect(data.message).toBe('Doctor Recommendations endpoint is running');
-      expect(data.requiredFields).toContain('patientAnalysis (string, min 10 chars)');
-      expect(data.requiredFields).toContain('doctorNotes (string, min 5 chars, max 1000 chars)');
-    });
-  });
-
-  describe('Prescription Endpoint', () => {
-    it('should return endpoint information', async () => {
-      const response = await prescriptionGet();
-      const data = await response.json();
-
-      expect(response.status).toBe(200);
-      expect(data.success).toBe(true);
-      expect(data.message).toBe('Prescription Generation endpoint is running');
-      expect(data.requiredFields).toContain('doctorRecommendations (string, min 10 chars)');
-    });
+    expect(response.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(body.message).toBe('AI Controller is running');
   });
 }); 

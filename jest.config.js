@@ -7,10 +7,14 @@ const createJestConfig = nextJest({
 
 const customJestConfig = {
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
-  testEnvironment: 'jest-environment-jsdom',
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
+  testEnvironment: 'jest-environment-jsdom-global',
+  // Add more setup options before each test is run
+  // setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
+  // if using TypeScript with a baseUrl set to the root directory then you need the below for alias' to work
+  moduleDirectories: ['node_modules', '<rootDir>/'],
   testMatch: [
     '**/__tests__/**/*.test.ts',
     '**/__tests__/**/*.test.tsx'
@@ -33,6 +37,7 @@ const customJestConfig = {
   ...(process.env.CI && { maxWorkers: 1 }),
   // Disable coverage collection in CI to avoid SWC issues
   collectCoverage: !process.env.CI,
+  moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
 }
 
 module.exports = createJestConfig(customJestConfig)

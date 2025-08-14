@@ -6,6 +6,7 @@ const openaiApiKey = process.env.OPENAI_API_KEY;
 // Initialize OpenAI client (only if API key is available)
 export const openai = openaiApiKey ? new OpenAI({
   apiKey: openaiApiKey,
+  ...process.env.NODE_ENV === 'test' && { dangerouslyAllowBrowser: true },
 }) : null;
 
 // Log configuration status

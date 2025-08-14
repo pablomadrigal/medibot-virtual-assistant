@@ -9,10 +9,12 @@ export const BaseAIRequestSchema = z.object({
 
 // Patient analysis request schema
 export const PatientAnalysisRequestSchema = BaseAIRequestSchema.extend({
+  anamnesisId: z.string().uuid().optional(),
   patientDescription: z.string().min(10, 'Patient description must be at least 10 characters').max(2000, 'Patient description too long'),
+  symptoms: z.array(z.string()).optional(),
+  duration: z.string().optional(),
   patientAge: z.number().min(0).max(120).optional(),
   patientGender: z.enum(['male', 'female', 'other']).optional(),
-  symptoms: z.array(z.string()).optional(),
   medicalHistory: z.string().optional(),
   currentMedications: z.array(z.string()).optional(),
 });
