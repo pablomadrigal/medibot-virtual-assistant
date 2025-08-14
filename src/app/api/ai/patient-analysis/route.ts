@@ -1,6 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
-import { AnamnesisRepository } from '@/repositories/AnamnesisRepository';
 import { 
   AIErrorHandler, 
   AIResponseFormatter, 
@@ -17,13 +15,6 @@ import {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createServerSupabaseClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-        return NextResponse.json(AIResponseFormatter.formatErrorResponse('Authentication required.', 'UNAUTHORIZED'), { status: 401 });
-    }
-
     const body = await request.json();
     const validationResult = PatientAnalysisRequestSchema.safeParse(body);
     
@@ -61,14 +52,6 @@ export async function POST(request: NextRequest) {
         summary: aiResponse,
         recommendations: []
       };
-    }
-
-    // Save summary and recommendations to anamnesis
-    if (validationResult.data.anamnesisId) {
-        await AnamnesisRepository.update(validationResult.data.anamnesisId, {
-            aiSummary: parsedResponse.summary,
-            aiRecommendations: parsedResponse.recommendations,
-        }, user.id);
     }
 
     return NextResponse.json(

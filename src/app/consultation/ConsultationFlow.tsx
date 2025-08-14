@@ -38,13 +38,24 @@ export const ConsultationFlow: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Free Consultation Notice */}
+      <div className="bg-green-50 border-b border-green-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+          <div className="text-center">
+            <p className="text-green-800 font-medium">
+              🎉 <strong>Consulta Médica Gratuita</strong> - No requiere registro ni cuenta
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Header */}
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
             <div className="flex items-center">
-              <h1 className="text-2xl font-bold text-gray-900">Consulta Médica con IA</h1>
-              <span className="ml-4 px-3 py-1 text-sm bg-blue-100 text-blue-800 rounded-full">
+              <h1 className="text-2xl font-bold text-gray-900">Consulta Médica Gratuita con IA</h1>
+              <span className="ml-4 px-3 py-1 text-sm bg-green-100 text-green-800 rounded-full">
                 {currentStep === 'patient-input' && 'Paso 1: Información del Paciente'}
                 {currentStep === 'doctor-review' && 'Paso 2: Revisión del Médico'}
                 {currentStep === 'prescription' && 'Paso 3: Prescripción'}
@@ -129,8 +140,10 @@ export const ConsultationFlow: React.FC = () => {
       <footer className="bg-white border-t mt-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="text-center text-sm text-gray-500">
-            <p>Este sistema de consulta médica con IA es solo para fines informativos.</p>
-            <p className="mt-1">Siempre consulta con un proveedor de atención médica calificado para consejos médicos.</p>
+            <p className="font-medium text-gray-700 mb-2">⚠️ Consulta Médica Gratuita - Solo para Fines Informativos</p>
+            <p>Este sistema de consulta médica con IA es completamente gratuito y solo para fines informativos.</p>
+            <p className="mt-1">No requiere registro ni cuenta. Sin embargo, siempre consulta con un proveedor de atención médica calificado para consejos médicos reales.</p>
+            <p className="mt-2 text-xs text-gray-400">Los resultados no son un diagnóstico médico y no reemplazan la consulta con un profesional de la salud.</p>
           </div>
         </div>
       </footer>

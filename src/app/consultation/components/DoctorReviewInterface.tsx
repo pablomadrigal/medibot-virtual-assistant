@@ -44,7 +44,7 @@ export const DoctorReviewInterface: React.FC<DoctorReviewInterfaceProps> = ({
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          patientAnalysis: JSON.stringify(patientAnalysis),
+          patientAnalysis: patientAnalysis,
           doctorNotes: doctorNotes,
           urgency: urgency,
         }),
