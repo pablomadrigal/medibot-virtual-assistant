@@ -1,150 +1,106 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { z } from 'zod'
-import { Patient } from '@/types'
+import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
+import { PatientRepository } from '@/repositories/PatientRepository';
 import {
-  transformPatientForResponse,
-  sanitizePatientInput,
   formatSuccessResponse,
-  formatErrorResponse
-} from '@/lib/api/transformers'
-import { isValidUUID } from '@/lib/api/middleware'
+  formatErrorResponse,
+} from '@/lib/api/transformers';
+import { isValidUUID } from '@/lib/api/middleware';
+import { createServerSupabaseClient } from '@/lib/supabase/server';
 
-// Validation schemas
 const UpdatePatientSchema = z.object({
   name: z.string().min(1, 'Name is required').max(255, 'Name too long').optional(),
   dateOfBirth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format (YYYY-MM-DD)').optional(),
-  encryptedData: z.any().optional()
-})
+  encryptedData: z.any().optional(),
+});
 
-// GET /api/patients/[id] - Get patient by ID
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+async function authCheck(id: string) {
+  const supabase = createServerSupabaseClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return { error: formatErrorResponse('UNAUTHORIZED', 'Authentication required.') };
+  }
+  if (user.id !== id) {
+    return { error: formatErrorResponse('FORBIDDEN', 'You can only access your own data.') };
+  }
+  return { user };
+}
+
+export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const { id } = params
-
-    // Validate UUID format
+    const { id } = params;
     if (!isValidUUID(id)) {
-      const errorResponse = formatErrorResponse(
-        'INVALID_ID',
-        'Invalid patient ID format'
-      )
-      return NextResponse.json(errorResponse, { status: 400 })
+      return NextResponse.json(formatErrorResponse('INVALID_ID', 'Invalid patient ID format'), { status: 400 });
     }
 
-    // TODO: Implement database query to get patient by ID
-    // For now, return mock data or not found
-    const patient: Patient | null = null
+    const { error: authError } = await authCheck(id);
+    if (authError) {
+      return NextResponse.json(authError, { status: authError.error.code === 'UNAUTHORIZED' ? 401 : 403 });
+    }
 
+    const patient = await PatientRepository.findById(id);
     if (!patient) {
-      const errorResponse = formatErrorResponse(
-        'NOT_FOUND',
-        'Patient not found'
-      )
-      return NextResponse.json(errorResponse, { status: 404 })
+      return NextResponse.json(formatErrorResponse('NOT_FOUND', 'Patient not found'), { status: 404 });
     }
 
-    const transformedPatient = transformPatientForResponse(patient)
-    const response = formatSuccessResponse(transformedPatient)
-    return NextResponse.json(response)
-
+    return NextResponse.json(formatSuccessResponse(patient));
   } catch (error) {
-    console.error('Error fetching patient:', error)
-    const errorResponse = formatErrorResponse(
-      'INTERNAL_ERROR',
-      'Failed to fetch patient'
-    )
-    return NextResponse.json(errorResponse, { status: 500 })
+    console.error('Error fetching patient:', error);
+    return NextResponse.json(formatErrorResponse('INTERNAL_ERROR', 'Failed to fetch patient'), { status: 500 });
   }
 }
 
-// PUT /api/patients/[id] - Update patient by ID
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const { id } = params
-    const body = await request.json()
-
-    // Validate UUID format
+    const { id } = params;
     if (!isValidUUID(id)) {
-      const errorResponse = formatErrorResponse(
-        'INVALID_ID',
-        'Invalid patient ID format'
-      )
-      return NextResponse.json(errorResponse, { status: 400 })
+      return NextResponse.json(formatErrorResponse('INVALID_ID', 'Invalid patient ID format'), { status: 400 });
     }
 
-    // Sanitize input data
-    const sanitizedInput = sanitizePatientInput(body)
+    const { user, error: authError } = await authCheck(id);
+    if (authError) {
+      return NextResponse.json(authError, { status: authError.error.code === 'UNAUTHORIZED' ? 401 : 403 });
+    }
 
-    // Validate request body
-    const validationResult = UpdatePatientSchema.safeParse(sanitizedInput)
+    const body = await request.json();
+    const validationResult = UpdatePatientSchema.safeParse(body);
     if (!validationResult.success) {
-      const errorResponse = formatErrorResponse(
-        'VALIDATION_ERROR',
-        'Invalid patient data',
-        validationResult.error.issues
-      )
-      return NextResponse.json(errorResponse, { status: 400 })
+      return NextResponse.json(formatErrorResponse('VALIDATION_ERROR', 'Invalid patient data', validationResult.error.issues), { status: 400 });
     }
 
-    // TODO: Implement database update
-    // For now, return mock updated patient
-    const updatedPatient: Patient = {
-      id,
-      name: validationResult.data.name || 'Mock Patient',
-      dateOfBirth: validationResult.data.dateOfBirth || '1990-01-01',
-      encryptedData: validationResult.data.encryptedData,
-      createdAt: new Date('2024-01-01'),
-      updatedAt: new Date()
+    const updatedPatient = await PatientRepository.update(id, validationResult.data, user!.id);
+    if (!updatedPatient) {
+      return NextResponse.json(formatErrorResponse('NOT_FOUND', 'Patient not found for update'), { status: 404 });
     }
 
-    const transformedPatient = transformPatientForResponse(updatedPatient)
-    const response = formatSuccessResponse(transformedPatient, 'Patient updated successfully')
-    return NextResponse.json(response)
-
+    return NextResponse.json(formatSuccessResponse(updatedPatient, 'Patient updated successfully'));
   } catch (error) {
-    console.error('Error updating patient:', error)
-    const errorResponse = formatErrorResponse(
-      'INTERNAL_ERROR',
-      'Failed to update patient'
-    )
-    return NextResponse.json(errorResponse, { status: 500 })
+    console.error('Error updating patient:', error);
+    return NextResponse.json(formatErrorResponse('INTERNAL_ERROR', 'Failed to update patient'), { status: 500 });
   }
 }
 
-// DELETE /api/patients/[id] - Delete patient by ID
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const { id } = params
-
-    // Validate UUID format
+    const { id } = params;
     if (!isValidUUID(id)) {
-      const errorResponse = formatErrorResponse(
-        'INVALID_ID',
-        'Invalid patient ID format'
-      )
-      return NextResponse.json(errorResponse, { status: 400 })
+      return NextResponse.json(formatErrorResponse('INVALID_ID', 'Invalid patient ID format'), { status: 400 });
     }
 
-    // TODO: Implement database deletion
-    // For now, simulate successful deletion
+    const { user, error: authError } = await authCheck(id);
+    if (authError) {
+      return NextResponse.json(authError, { status: authError.error.code === 'UNAUTHORIZED' ? 401 : 403 });
+    }
 
-    const response = formatSuccessResponse(null, 'Patient deleted successfully')
-    return NextResponse.json(response)
+    const success = await PatientRepository.delete(id, user!.id);
+    if (!success) {
+      return NextResponse.json(formatErrorResponse('NOT_FOUND', 'Patient not found for deletion'), { status: 404 });
+    }
 
+    return NextResponse.json(formatSuccessResponse(null, 'Patient deleted successfully'));
   } catch (error) {
-    console.error('Error deleting patient:', error)
-    const errorResponse = formatErrorResponse(
-      'INTERNAL_ERROR',
-      'Failed to delete patient'
-    )
-    return NextResponse.json(errorResponse, { status: 500 })
+    console.error('Error deleting patient:', error);
+    return NextResponse.json(formatErrorResponse('INTERNAL_ERROR', 'Failed to delete patient'), { status: 500 });
   }
 }

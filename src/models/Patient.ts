@@ -1,7 +1,5 @@
 import { z } from 'zod'
-import { PoolClient } from 'pg'
-import { withDatabase, withTransaction } from '../lib/database'
-import { encryptPatientData, decryptPatientData } from '../lib/encryption'
+import { encrypt, decrypt } from '../lib/security/encryption';
 
 // Validation schemas
 export const PatientSchema = z.object({
@@ -34,23 +32,23 @@ export class PatientModel {
 
   // Convert database row to Patient object
   static fromDatabaseRow(row: any): Patient {
-    return {
-      id: row.id,
-      name: row.name,
-      dateOfBirth: row.date_of_birth,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-      encryptedData: row.encrypted_data ? decryptPatientData(row.encrypted_data) : null,
-    }
+    return new Patient(
+      row.id,
+      row.name,
+      row.date_of_birth,
+      decrypt(row.encrypted_data),
+      row.created_at,
+      row.updated_at
+    );
   }
 
   // Convert Patient object to database format
-  static toDatabaseRow(patient: CreatePatientData & { encryptedData?: any }) {
+  static toDatabaseRow(data: Partial<Patient>): any {
     return {
-      name: patient.name,
-      date_of_birth: patient.dateOfBirth,
-      encrypted_data: patient.encryptedData ? encryptPatientData(patient.encryptedData) : null,
-    }
+      name: data.name,
+      date_of_birth: data.dateOfBirth,
+      encrypted_data: encrypt(data.encryptedData),
+    };
   }
 
   // Validate date of birth

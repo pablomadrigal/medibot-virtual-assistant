@@ -1,47 +1,45 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { Anamnesis } from '@/types'
-import { 
+import { NextRequest, NextResponse } from 'next/server';
+import { AnamnesisRepository } from '@/repositories/AnamnesisRepository';
+import {
   formatSuccessResponse,
   formatErrorResponse,
-  parsePaginationParams,
-  formatPaginatedResponse
-} from '@/lib/api/transformers'
-import { isValidUUID } from '@/lib/api/middleware'
+} from '@/lib/api/transformers';
+import { isValidUUID } from '@/lib/api/middleware';
+import { createServerSupabaseClient } from '@/lib/supabase/server';
 
-// GET /api/patients/[id]/anamnesis - Get all anamnesis records for a specific patient
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+async function authCheck(patientId: string) {
+    const supabase = createServerSupabaseClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+  
+    if (authError || !user) {
+      return { error: formatErrorResponse('UNAUTHORIZED', 'Authentication required.') };
+    }
+    // A doctor/admin should be able to see any patient's anamnesis. A patient can only see their own.
+    // This logic should be handled by RLS, but we can double-check here.
+    // For now, we'll rely on RLS and just check for a valid session.
+    
+    return { user };
+}
+
+export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const { id } = params
-    const { searchParams } = new URL(request.url)
-    const paginationParams = parsePaginationParams(searchParams)
+    const { id: patientId } = params;
 
-    // Validate UUID format
-    if (!isValidUUID(id)) {
-      const errorResponse = formatErrorResponse(
-        'INVALID_PATIENT_ID',
-        'Invalid patient ID format'
-      )
-      return NextResponse.json(errorResponse, { status: 400 })
+    if (!isValidUUID(patientId)) {
+      return NextResponse.json(formatErrorResponse('INVALID_PATIENT_ID','Invalid patient ID format'), { status: 400 });
     }
 
-    // TODO: Verify that patient exists
-    // TODO: Implement database query to get anamnesis records for specific patient
-    // For now, return mock data
-    const anamnesisRecords: Anamnesis[] = []
-    const total = 0
+    const { error: authError } = await authCheck(patientId);
+    if (authError) {
+        return NextResponse.json(authError, { status: 401 });
+    }
+
+    const anamnesisRecords = await AnamnesisRepository.findByPatientId(patientId);
     
-    const response = formatPaginatedResponse(anamnesisRecords, total, paginationParams)
-    
-    return NextResponse.json(response)
+    return NextResponse.json(formatSuccessResponse(anamnesisRecords));
   } catch (error) {
-    console.error('Error fetching patient anamnesis records:', error)
-    const errorResponse = formatErrorResponse(
-      'INTERNAL_ERROR',
-      'Failed to fetch patient anamnesis records'
-    )
-    return NextResponse.json(errorResponse, { status: 500 })
+    console.error('Error fetching patient anamnesis records:', error);
+    const errorResponse = formatErrorResponse('INTERNAL_ERROR', 'Failed to fetch patient anamnesis records');
+    return NextResponse.json(errorResponse, { status: 500 });
   }
 }
