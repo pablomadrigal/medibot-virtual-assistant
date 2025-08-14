@@ -11,7 +11,7 @@ export interface CORSOptions {
   optionsSuccessStatus?: number;
 }
 
-// Default CORS configuration for Docker environment
+// Default CORS configuration
 const defaultCORSOptions: CORSOptions = {
   origin: process.env.NODE_ENV === 'production' 
     ? process.env.ALLOWED_ORIGINS?.split(',') || false

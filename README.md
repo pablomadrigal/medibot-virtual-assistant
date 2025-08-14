@@ -16,7 +16,7 @@ MediBot consists of three main components:
 - **Doctor Dashboard**: Comprehensive consultation review and patient management
 - **HIPAA Compliant**: Secure data handling with encryption and audit logging
 - **Accessible Design**: WCAG 2.1 AA compliant interfaces
-- **Docker-First Development**: Containerized development and deployment
+- **Simple Development**: Direct Node.js setup with hot reloading
 
 ## 📋 Project Structure
 
@@ -45,14 +45,14 @@ MediBot consists of three main components:
 - Natural Language Processing for medical data extraction
 
 **Infrastructure:**
-- Docker & Docker Compose
+- Supabase cloud database
 - HIPAA-compliant security measures
 
 ## 🏃‍♂️ Getting Started
 
 ### Prerequisites
-- Docker and Docker Compose
-- Node.js 18+ (for development)
+- Node.js 18+
+- Yarn package manager
 - Git
 
 ### Development Setup
@@ -60,23 +60,28 @@ MediBot consists of three main components:
 1. Clone the repository:
 ```bash
 git clone <repository-url>
-cd medibot-virtual-assistant
+cd AngularHelper
 ```
 
-2. Start the development environment:
+2. Install dependencies:
 ```bash
-docker-compose up -d
+yarn install
 ```
 
-3. Run database migrations:
+3. Set up environment variables:
 ```bash
-npm run migrate
+cp env.example .env
+# Edit .env with your Supabase and OpenAI credentials
 ```
 
-4. Access the applications:
-- Patient Interface: http://localhost:3000
-- Doctor Interface: http://localhost:3001
-- API Documentation: http://localhost:8000/docs
+4. Start the development server:
+```bash
+yarn dev
+```
+
+5. Access the application:
+- Main Application: http://localhost:3000
+- API Endpoints: http://localhost:3000/api/*
 
 ## 📖 Documentation
 
@@ -110,14 +115,23 @@ npm run test:security
 
 ## 📦 Deployment
 
-The application is designed for containerized deployment:
+The application can be deployed to any Node.js hosting platform:
 
 ```bash
-# Build production images
-docker-compose -f docker-compose.prod.yml build
+# Build for production
+yarn build
 
-# Deploy to production
-docker-compose -f docker-compose.prod.yml up -d
+# Start production server
+yarn start
+```
+
+### Vercel Deployment
+```bash
+# Install Vercel CLI
+npm i -g vercel
+
+# Deploy
+vercel
 ```
 
 ## 🤝 Contributing

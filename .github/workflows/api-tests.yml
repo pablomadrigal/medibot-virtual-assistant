@@ -17,33 +17,9 @@ jobs:
     name: API Integration Tests
     runs-on: ubuntu-latest
     
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD || 'test-postgres-password' }}
-          POSTGRES_DB: medibot_test
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
-          
-      redis:
-        image: redis:7
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 6379:6379
+    # Note: Using Supabase for database, no local services needed
     
     env:
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/medibot_test
-      REDIS_URL: redis://localhost:6379
       JWT_SECRET: ${{ secrets.JWT_SECRET_TEST || 'test-jwt-secret-for-ci-only' }}
       ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY_TEST || 'test-encryption-key-for-ci-only' }}
       NODE_ENV: test
@@ -66,17 +42,9 @@ jobs:
     - name: Install dependencies
       run: yarn install --frozen-lockfile
       
-    - name: Install Redis CLI
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y redis-tools
-        
     - name: Wait for services
       run: |
-        echo "Waiting for PostgreSQL..."
-        until pg_isready -h localhost -p 5432; do sleep 1; done
-        echo "Waiting for Redis..."
-        until redis-cli -h localhost -p 6379 ping; do sleep 1; done
+        echo "Using Supabase for database - no local services needed"
         
     - name: Run All Tests
       run: yarn test:ci
