@@ -1,4 +1,4 @@
-// Authentication configuration for Docker environment
+// Authentication configuration
 
 export interface AuthConfig {
   jwt: {
@@ -23,7 +23,7 @@ export interface AuthConfig {
   };
 }
 
-// Default configuration with Docker-compatible environment variables
+// Default configuration with environment variables
 export const authConfig: AuthConfig = {
   jwt: {
     secret: process.env.JWT_SECRET || 'medibot-dev-secret-key-change-in-production',
@@ -64,30 +64,15 @@ export function validateAuthConfig(): void {
   }
 }
 
-// Docker-specific configuration helpers
-export const dockerConfig = {
-  // Database connection for Docker containers
-  database: {
-    host: process.env.DB_HOST || 'postgres',
-    port: parseInt(process.env.DB_PORT || '5432', 10),
-    database: process.env.DB_NAME || 'medibot',
-    username: process.env.DB_USER || 'medibot_user',
-    password: process.env.DB_PASSWORD || 'medibot_password'
+// Configuration helpers for future microservices
+export const serviceConfig = {
+  // AI service configuration
+  aiService: {
+    url: process.env.AI_SERVICE_URL || 'http://localhost:3001',
   },
-  
-  // Redis connection for Docker containers
-  redis: {
-    host: process.env.REDIS_HOST || 'redis',
-    port: parseInt(process.env.REDIS_PORT || '6379', 10),
-    password: process.env.REDIS_PASSWORD || undefined,
-    db: parseInt(process.env.REDIS_DB || '0', 10)
-  },
-
-  // Service discovery for Docker containers
-  services: {
-    authService: process.env.AUTH_SERVICE_URL || 'http://auth-service:3001',
-    patientService: process.env.PATIENT_SERVICE_URL || 'http://patient-service:3002',
-    conversationService: process.env.CONVERSATION_SERVICE_URL || 'http://conversation-service:3003'
+  // Conversation service configuration  
+  conversationService: {
+    url: process.env.CONVERSATION_SERVICE_URL || 'http://localhost:3002',
   }
 };
 

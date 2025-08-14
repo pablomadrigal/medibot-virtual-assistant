@@ -18,7 +18,7 @@ import {
   type AuthenticatedRequest,
   type AuthMiddlewareOptions
 } from './middleware';
-import { authConfig, dockerConfig, validateAuthConfig, type AuthConfig } from './config';
+import { authConfig, serviceConfig, validateAuthConfig, type AuthConfig } from './config';
 
 // Re-export everything
 export { JWTService, type JWTPayload, type AuthTokens };
@@ -39,7 +39,7 @@ export {
   type AuthenticatedRequest,
   type AuthMiddlewareOptions
 };
-export { authConfig, dockerConfig, validateAuthConfig, type AuthConfig };
+export { authConfig, serviceConfig, validateAuthConfig, type AuthConfig };
 
 // Default export for convenience
 export default {

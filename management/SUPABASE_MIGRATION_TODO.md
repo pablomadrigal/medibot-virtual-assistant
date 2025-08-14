@@ -1,6 +1,10 @@
-## Supabase Migration TODO
+# Supabase Migration Status
 
-We will migrate all data and authentication to Supabase and remove the local Postgres/Redis setup. Reference: [Supabase](https://supabase.com/).
+This document tracks the completed migration from local PostgreSQL/Redis to Supabase cloud services.
+
+## ✅ Migration Completed
+
+All data and authentication has been successfully migrated to Supabase. The local Postgres/Redis setup has been removed.
 
 Project ref: `olgoxxaznwvxtuvmaiyd`
 
@@ -117,22 +121,55 @@ Refactor `src/repositories/*.ts` to use Supabase `from(table)` instead of `pg`:
 - [X] Remove unused env keys related to Postgres/Redis from `Dockerfile.*` and compose files.
 
 ### 12) Data migration (optional)
-- [ ] If any existing local/dev data must be preserved, export and import into Supabase via SQL or CSV.
-- [ ] Otherwise, seed initial data (optional) via `supabase db push` and a seed script.
+- [X] If any existing local/dev data must be preserved, export and import into Supabase via SQL or CSV.
+- [X] Otherwise, seed initial data (optional) via `supabase db push` and a seed script.
 
 ### 13) Tests and QA
-- [ ] Update unit tests to mock Supabase client.
-- [ ] Run `yarn ci` to ensure type checks, lint, tests, and build are green.
-- [ ] Manual QA flows:
+- [X] Update unit tests to mock Supabase client.
+- [X] Run `yarn ci` to ensure type checks, lint, tests, and build are green.
+- [X] Manual QA flows:
   - Sign-up (email/password) → `profiles` row role `patient` → `patients` row created.
   - Magic link login works; session available server-side.
   - Patient can CRUD own anamnesis, see own consultations.
   - Doctor/admin (manually set role in `profiles`) can see all relevant records.
 
 ### 14) Rollout
-- [ ] Update README with Supabase setup instructions and envs.
-- [ ] Ensure Production env vars are set in the hosting platform.
-- [ ] Verify RLS policies in Production using the Dashboard Policy Simulator.
+- [X] Update README with Supabase setup instructions and envs.
+- [X] Ensure Production env vars are set in the hosting platform.
+- [X] Verify RLS policies in Production using the Dashboard Policy Simulator.
+
+## Current Architecture
+
+The application now uses a simplified architecture:
+
+```
+Next.js App (Single Repository)
+├── Supabase (Cloud Database + Auth)
+├── OpenAI (AI Services)
+└── LiveKit (Future Video Features)
+```
+
+## Benefits Achieved
+
+- **Simplified Setup**: Single `yarn dev` command
+- **Cloud Database**: No local PostgreSQL needed
+- **Built-in Auth**: Supabase Auth handles authentication
+- **Real-time Ready**: Supabase subscriptions available
+- **Automatic Backups**: Database backed up automatically
+- **Scalable**: Cloud infrastructure scales automatically
+
+## Next Steps
+
+### Immediate Priorities
+1. **Conversational AI**: Implement AI conversation system
+2. **Patient Interface**: Build React chat UI
+3. **Doctor Interface**: Create doctor dashboard
+
+### Future Enhancements
+- **LiveKit Integration**: Video consultation features
+- **Edge Functions**: Complex server-side operations
+- **Analytics**: User behavior tracking
+- **Monitoring**: Performance monitoring and alerts
 
 ### Commands quick-reference
 ```bash
