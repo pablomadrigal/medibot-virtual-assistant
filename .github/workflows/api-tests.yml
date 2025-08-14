@@ -22,6 +22,7 @@ jobs:
     env:
       JWT_SECRET: ${{ secrets.JWT_SECRET_TEST || 'test-jwt-secret-for-ci-only' }}
       ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY_TEST || 'test-encryption-key-for-ci-only' }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       NODE_ENV: test
       # Fix SWC transformer issues in CI
       NEXT_TELEMETRY_DISABLED: 1
