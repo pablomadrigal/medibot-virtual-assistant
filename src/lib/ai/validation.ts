@@ -21,7 +21,10 @@ export const PatientAnalysisRequestSchema = BaseAIRequestSchema.extend({
 
 // Doctor recommendations request schema
 export const DoctorRecommendationsRequestSchema = BaseAIRequestSchema.extend({
-  patientAnalysis: z.string().min(10, 'Patient analysis must be at least 10 characters'),
+  patientAnalysis: z.union([
+    z.string().min(10, 'Patient analysis must be at least 10 characters'),
+    z.object({}).passthrough() // Allow any object structure
+  ]),
   doctorNotes: z.string().min(5, 'Doctor notes must be at least 5 characters').max(1000, 'Doctor notes too long'),
   patientId: z.string().optional(),
   consultationId: z.string().optional(),
@@ -30,7 +33,10 @@ export const DoctorRecommendationsRequestSchema = BaseAIRequestSchema.extend({
 
 // Prescription generation request schema
 export const PrescriptionRequestSchema = BaseAIRequestSchema.extend({
-  doctorRecommendations: z.string().min(10, 'Doctor recommendations must be at least 10 characters'),
+  doctorRecommendations: z.union([
+    z.string().min(10, 'Doctor recommendations must be at least 10 characters'),
+    z.object({}).passthrough() // Allow any object structure
+  ]),
   patientId: z.string().optional(),
   doctorId: z.string().optional(),
   consultationId: z.string().optional(),

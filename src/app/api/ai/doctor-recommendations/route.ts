@@ -1,6 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
-import { ConsultationRepository } from '@/repositories/ConsultationRepository';
 import { 
   AIErrorHandler, 
   AIResponseFormatter, 
@@ -17,14 +15,6 @@ import {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createServerSupabaseClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-        return NextResponse.json(AIResponseFormatter.formatErrorResponse('Authentication required.', 'UNAUTHORIZED'), { status: 401 });
-    }
-    // In a real app, we'd check if the user has a 'doctor' role here.
-
     const body = await request.json();
     const validationResult = DoctorRecommendationsRequestSchema.safeParse(body);
     
@@ -38,18 +28,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { consultationId, doctorNotes, ...rest } = validationResult.data;
+    const { patientAnalysis, doctorNotes, urgency, ...rest } = validationResult.data;
 
-    // Fetch consultation to get patient analysis
-    const consultation = await ConsultationRepository.findByIdWithDetails(consultationId!);
-    if (!consultation) {
-        return NextResponse.json(AIResponseFormatter.formatErrorResponse('Consultation not found.', 'NOT_FOUND'), { status: 404 });
+    // Parse patient analysis if it's a string
+    let parsedPatientAnalysis;
+    if (typeof patientAnalysis === 'string') {
+      try {
+        parsedPatientAnalysis = JSON.parse(patientAnalysis);
+      } catch (parseError) {
+        parsedPatientAnalysis = { summary: patientAnalysis };
+      }
+    } else {
+      parsedPatientAnalysis = patientAnalysis;
     }
 
     const sanitizedNotes = sanitizeInput(doctorNotes);
 
     const userPrompt = DOCTOR_RECOMMENDATIONS_USER_PROMPT({
+      patientAnalysis: parsedPatientAnalysis,
       doctorNotes: sanitizedNotes,
+      urgency,
       ...rest,
     });
     
@@ -61,9 +59,6 @@ export async function POST(request: NextRequest) {
     } catch (parseError) {
       parsedResponse = { treatmentPlan: 'Could not parse AI response.' };
     }
-
-    // Save doctor notes to the consultation
-    await ConsultationRepository.updateStatus(consultationId!, consultation.status, user.id, sanitizedNotes);
 
     return NextResponse.json(
       AIResponseFormatter.formatSuccessResponse(parsedResponse),

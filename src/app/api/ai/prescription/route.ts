@@ -1,6 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
-import { ConsultationRepository } from '@/repositories/ConsultationRepository';
 import { 
   AIErrorHandler, 
   AIResponseFormatter, 
@@ -16,14 +14,6 @@ import {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createServerSupabaseClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-        return NextResponse.json(AIResponseFormatter.formatErrorResponse('Authentication required.', 'UNAUTHORIZED'), { status: 401 });
-    }
-    // Add role check for 'doctor' here in a real application
-
     const body = await request.json();
     const validationResult = PrescriptionRequestSchema.safeParse(body);
     
@@ -37,15 +27,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { consultationId, doctorRecommendations, ...rest } = validationResult.data;
+    const { doctorRecommendations, additionalContext, prescriptionType, ...rest } = validationResult.data;
 
-    const consultation = await ConsultationRepository.findByIdWithDetails(consultationId!);
-    if (!consultation) {
-        return NextResponse.json(AIResponseFormatter.formatErrorResponse('Consultation not found.', 'NOT_FOUND'), { status: 404 });
+    // Parse doctor recommendations if it's a string
+    let parsedDoctorRecommendations;
+    if (typeof doctorRecommendations === 'string') {
+      try {
+        parsedDoctorRecommendations = JSON.parse(doctorRecommendations);
+      } catch (parseError) {
+        parsedDoctorRecommendations = { treatmentPlan: doctorRecommendations };
+      }
+    } else {
+      parsedDoctorRecommendations = doctorRecommendations;
     }
 
     const userPrompt = PRESCRIPTION_USER_PROMPT({
-        doctorRecommendations,
+        doctorRecommendations: parsedDoctorRecommendations,
+        additionalContext,
+        prescriptionType,
         ...rest
     });
     

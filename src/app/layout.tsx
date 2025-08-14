@@ -5,8 +5,8 @@ import './globals.css'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'MediBot - AI-Powered Virtual Assistant',
-  description: 'Streamline patient intake with AI-powered conversations',
+  title: 'Medical AI Assistant - Consulta Médica Gratuita',
+  description: 'Consulta médica gratuita con IA. Análisis preliminar, recomendaciones y prescripciones sin necesidad de registro.',
 }
 
 export default function RootLayout({

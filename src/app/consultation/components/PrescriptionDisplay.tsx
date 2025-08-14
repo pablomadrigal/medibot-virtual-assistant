@@ -24,7 +24,7 @@ export const PrescriptionDisplay: React.FC<PrescriptionDisplayProps> = ({
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          doctorRecommendations: JSON.stringify(doctorRecommendations),
+          doctorRecommendations: doctorRecommendations,
           additionalContext: additionalContext || undefined,
           prescriptionType: prescriptionType,
         }),
