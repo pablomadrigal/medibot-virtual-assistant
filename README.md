@@ -55,6 +55,23 @@ MediBot consists of three main components:
 - Yarn package manager
 - Git
 
+### Environment Variables
+
+This application requires several environment variables to function properly. Copy the example file and configure your variables:
+
+```bash
+cp env.example .env.local
+```
+
+**Required Variables:**
+- `NEXT_PUBLIC_SUPABASE_URL`: Your Supabase project URL
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Your Supabase anonymous key
+- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY`: Your Supabase publishable key
+
+**Optional Variables:**
+- `OPENAI_API_KEY`: OpenAI API key for AI features
+- `SUPABASE_SERVICE_ROLE_KEY`: Supabase service role key for admin operations
+
 ### Development Setup
 
 1. Clone the repository:
@@ -70,8 +87,8 @@ yarn install
 
 3. Set up environment variables:
 ```bash
-cp env.example .env
-# Edit .env with your Supabase and OpenAI credentials
+cp env.example .env.local
+# Edit .env.local with your Supabase and OpenAI credentials
 ```
 
 4. Start the development server:
@@ -82,6 +99,16 @@ yarn dev
 5. Access the application:
 - Main Application: http://localhost:3000
 - API Endpoints: http://localhost:3000/api/*
+
+### Building for Production
+
+**Local Build:**
+```bash
+yarn build:check  # Checks environment variables first
+```
+
+**CI/CD Build:**
+The GitHub Actions workflow automatically sets the required environment variables from repository secrets during the build process.
 
 ## 📖 Documentation
 
