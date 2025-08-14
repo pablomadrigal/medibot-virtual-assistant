@@ -102,7 +102,8 @@ create_pr() {
         return 1
     fi
     
-    # Generate PR title and description
+    # Generate PR title and description (using semantic commit format)
+    # Note: This follows conventional commits format to pass semantic PR checks
     local pr_title="feat: $(echo $branch_name | tr '-' ' ' | sed 's/\b\w/\U&/g')"
     
     # Create comprehensive PR description

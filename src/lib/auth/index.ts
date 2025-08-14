@@ -41,9 +41,12 @@ export {
 };
 export { authConfig, serviceConfig, validateAuthConfig, type AuthConfig };
 
-// Default export for convenience
-export default {
+// Named export for convenience (fixes ESLint warning)
+export const AuthModule = {
   JWTService,
   RBACService,
   authConfig
 };
+
+// Default export for backward compatibility
+export default AuthModule;
