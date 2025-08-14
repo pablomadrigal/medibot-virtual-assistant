@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { openai, AI_CONFIG, RATE_LIMIT_CONFIG } from './client';
 import { AIResponseSchema, AIErrorResponseSchema, RateLimitErrorSchema, type AIErrorResponse } from './validation';
 
-// Simple in-memory rate limiting (in production, use Redis)
+// Simple in-memory rate limiting
 const requestCounts = new Map<string, { count: number; resetTime: number }>();
 
 export class RateLimiter {

@@ -1,43 +1,52 @@
-import { PoolClient } from 'pg'
+import { SupabaseClient } from '@supabase/supabase-js';
 
 export interface AuditLogEntry {
-  tableName: string
-  recordId: string
-  action: 'CREATE' | 'UPDATE' | 'DELETE'
-  oldValues?: any
-  newValues?: any
-  userId?: string
+  tableName: string;
+  recordId: string;
+  action: 'CREATE' | 'UPDATE' | 'DELETE';
+  oldValues?: any;
+  newValues?: any;
+  userId?: string;
 }
 
 export class AuditLogger {
-  // Log an audit entry
-  static async log(client: PoolClient, entry: AuditLogEntry): Promise<void> {
-    const query = `
-      INSERT INTO audit_log (table_name, record_id, action, old_values, new_values, user_id)
-      VALUES ($1, $2, $3, $4, $5, $6)
-    `
-    
-    await client.query(query, [
-      entry.tableName,
-      entry.recordId,
-      entry.action,
-      entry.oldValues ? JSON.stringify(entry.oldValues) : null,
-      entry.newValues ? JSON.stringify(entry.newValues) : null,
-      entry.userId || 'system'
-    ])
+  static async log(supabase: SupabaseClient, entry: AuditLogEntry): Promise<void> {
+    const { error } = await supabase.from('audit_log').insert({
+      table_name: entry.tableName,
+      record_id: entry.recordId,
+      action: entry.action,
+      old_values: entry.oldValues,
+      new_values: entry.newValues,
+      user_id: entry.userId || 'system',
+    });
+
+    if (error) {
+      console.error('Failed to write to audit log:', error);
+      // Depending on requirements, you might want to throw an error
+      // or handle it silently. For now, we log it.
+    }
   }
 
-  // Get audit trail for a specific record
-  static async getAuditTrail(tableName: string, recordId: string): Promise<AuditLogEntry[]> {
-    const query = `
-      SELECT table_name, record_id, action, old_values, new_values, user_id, timestamp
-      FROM audit_log
-      WHERE table_name = $1 AND record_id = $2
-      ORDER BY timestamp DESC
-    `
-    
-    // This would need to be called within a database context
-    // For now, returning empty array as placeholder
-    return []
+  static async getAuditTrail(supabase: SupabaseClient, tableName: string, recordId: string): Promise<AuditLogEntry[]> {
+    const { data, error } = await supabase
+      .from('audit_log')
+      .select('*')
+      .eq('table_name', tableName)
+      .eq('record_id', recordId)
+      .order('timestamp', { ascending: false });
+
+    if (error) {
+      console.error('Failed to fetch audit trail:', error);
+      return [];
+    }
+
+    return data.map(item => ({
+        tableName: item.table_name,
+        recordId: item.record_id,
+        action: item.action,
+        oldValues: item.old_values,
+        newValues: item.new_values,
+        userId: item.user_id,
+    }));
   }
 }

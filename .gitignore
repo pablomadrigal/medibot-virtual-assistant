@@ -50,9 +50,6 @@ coverage/
 # nyc test coverage
 .nyc_output
 
-# Docker
-.docker/
-
 # Database
 *.sqlite
 *.db

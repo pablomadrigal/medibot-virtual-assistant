@@ -5,7 +5,6 @@
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MAIN_REPO="$(dirname "$SCRIPT_DIR")"
-WORKTREE_BASE="$(dirname "$MAIN_REPO")/medibot-worktrees"
 SPECS_DIR="$MAIN_REPO/.kiro/specs"
 
 # Colors for output
@@ -84,24 +83,27 @@ update_specs() {
 # Function to create comprehensive PR
 create_pr() {
     local branch_name=$1
-    local worktree_path="$WORKTREE_BASE/$branch_name"
     
     echo -e "\n${YELLOW}🚀 Creating comprehensive PR...${NC}"
     
-    if [ ! -d "$worktree_path" ]; then
-        echo -e "${RED}❌ Worktree $branch_name not found${NC}"
+    cd "$MAIN_REPO"
+    
+    # Check if we're on the correct branch
+    local current_branch=$(git branch --show-current)
+    if [ "$current_branch" != "feature/$branch_name" ]; then
+        echo -e "${RED}❌ Not on feature/$branch_name branch${NC}"
+        echo -e "${YELLOW}Current branch: $current_branch${NC}"
         return 1
     fi
-    
-    cd "$worktree_path"
     
     # Check if branch has commits
-    if [ -z "$(git log --oneline feature/$branch_name ^main)" ]; then
-        echo -e "${RED}❌ No commits found on feature/$branch_name${NC}"
+    if [ -z "$(git log --oneline HEAD ^main)" ]; then
+        echo -e "${RED}❌ No commits found on current branch${NC}"
         return 1
     fi
     
-    # Generate PR title and description
+    # Generate PR title and description (using semantic commit format)
+    # Note: This follows conventional commits format to pass semantic PR checks
     local pr_title="feat: $(echo $branch_name | tr '-' ' ' | sed 's/\b\w/\U&/g')"
     
     # Create comprehensive PR description
@@ -115,7 +117,7 @@ This PR implements the $branch_name feature as part of the MediBot virtual assis
 
 ## 🔧 Changes Made
 <!-- Auto-generated summary of changes -->
-$(git log --oneline feature/$branch_name ^main | sed 's/^/- /')
+$(git log --oneline HEAD ^main | sed 's/^/- /')
 
 ## 🧪 Testing
 - [ ] Unit tests added/updated
@@ -144,7 +146,6 @@ Closes #[issue-number]
 
 ---
 **Branch**: feature/$branch_name  
-**Worktree**: $worktree_path  
 **Created**: $(date '+%Y-%m-%d %H:%M:%S')"
     
     # Push the branch first
@@ -181,7 +182,6 @@ Closes #[issue-number]
 # Function to wait for PR merge and cleanup
 cleanup_after_merge() {
     local branch_name=$1
-    local worktree_path="$WORKTREE_BASE/$branch_name"
     
     echo -e "\n${YELLOW}⏳ Waiting for PR to be merged...${NC}"
     echo -e "${BLUE}Please merge the PR when ready, then press Enter to continue cleanup${NC}"
@@ -194,14 +194,12 @@ cleanup_after_merge() {
     if git branch -r --merged origin/main | grep -q "origin/feature/$branch_name"; then
         echo -e "${GREEN}✅ PR has been merged!${NC}"
         
-        # Remove the worktree and branch
-        echo -e "${YELLOW}🗑️  Cleaning up worktree and branch...${NC}"
+        # Clean up the branch
+        echo -e "${YELLOW}🗑️  Cleaning up branch...${NC}"
         
-        # Remove worktree
-        if [ -d "$worktree_path" ]; then
-            git worktree remove "$worktree_path" --force
-            echo -e "${GREEN}✅ Removed worktree: $worktree_path${NC}"
-        fi
+        # Switch to main and pull latest
+        git checkout main
+        git pull origin main
         
         # Delete local branch
         git branch -d feature/$branch_name 2>/dev/null || git branch -D feature/$branch_name
@@ -216,8 +214,8 @@ cleanup_after_merge() {
         
         echo -e "${GREEN}🎉 Cleanup completed successfully!${NC}"
         
-        # Ask about creating new worktree
-        create_next_worktree
+        # Ask about creating new branch
+        create_next_branch
         
     else
         echo -e "${RED}❌ PR doesn't appear to be merged yet${NC}"
@@ -226,54 +224,40 @@ cleanup_after_merge() {
     fi
 }
 
-# Function to create next worktree
-create_next_worktree() {
-    echo -e "\n${YELLOW}🌿 Create new worktree for next feature? (y/n):${NC}"
-    read -p "Create new worktree: " create_new
+# Function to create next branch
+create_next_branch() {
+    echo -e "\n${YELLOW}🌿 Create new branch for next feature? (y/n):${NC}"
+    read -p "Create new branch: " create_new
     
     if [ "$create_new" = "y" ] || [ "$create_new" = "yes" ]; then
         echo -e "${BLUE}Available upcoming features:${NC}"
-        echo "  1. docker-setup"
-        echo "  2. database-layer"
-        echo "  3. backend-api"
-        echo "  4. conversational-ai"
-        echo "  5. patient-interface"
-        echo "  6. doctor-interface"
-        echo "  7. custom (specify name)"
+        echo "  1. conversational-ai (Next Priority)"
+        echo "  2. patient-interface"
+        echo "  3. doctor-interface"
+        echo "  4. livekit-integration"
+        echo "  5. custom (specify name)"
         
         read -p "Enter feature name or number: " next_feature
         
         case $next_feature in
-            1) next_feature="docker-setup" ;;
-            2) next_feature="database-layer" ;;
-            3) next_feature="backend-api" ;;
-            4) next_feature="conversational-ai" ;;
-            5) next_feature="patient-interface" ;;
-            6) next_feature="doctor-interface" ;;
-            7) 
+            1) next_feature="conversational-ai" ;;
+            2) next_feature="patient-interface" ;;
+            3) next_feature="doctor-interface" ;;
+            4) next_feature="livekit-integration" ;;
+            5) 
                 read -p "Enter custom feature name: " next_feature
                 ;;
         esac
         
-        # Create new worktree
-        cd "$MAIN_REPO"
-        git fetch origin
-        git checkout main
-        git pull origin main
-        
-        echo -e "${YELLOW}Creating worktree for: $next_feature${NC}"
-        git worktree add "$WORKTREE_BASE/$next_feature" -b "feature/$next_feature"
+        # Create new branch
+        echo -e "${YELLOW}Creating branch for: $next_feature${NC}"
+        git checkout -b "feature/$next_feature"
         
         if [ $? -eq 0 ]; then
-            echo -e "${GREEN}✅ New worktree created: $WORKTREE_BASE/$next_feature${NC}"
-            
-            # Open new worktree
-            echo -e "${YELLOW}Opening new worktree...${NC}"
-            if command -v code &> /dev/null; then
-                code "$WORKTREE_BASE/$next_feature"
-            fi
+            echo -e "${GREEN}✅ New branch created: feature/$next_feature${NC}"
+            echo -e "${BLUE}You can now start developing on this branch${NC}"
         else
-            echo -e "${RED}❌ Failed to create new worktree${NC}"
+            echo -e "${RED}❌ Failed to create new branch${NC}"
         fi
     fi
 }
@@ -282,11 +266,16 @@ create_next_worktree() {
 show_completion_status() {
     echo -e "\n${GREEN}📊 Feature Completion Status:${NC}"
     
-    # Show current worktrees
-    echo -e "\n${BLUE}Active Worktrees:${NC}"
+    # Show current branch
+    echo -e "\n${BLUE}Current Branch:${NC}"
     cd "$MAIN_REPO"
-    git worktree list | while read line; do
-        echo "  $line"
+    local current_branch=$(git branch --show-current)
+    echo "  $current_branch"
+    
+    # Show feature branches
+    echo -e "\n${BLUE}Feature Branches:${NC}"
+    git branch | grep "feature/" | sed 's/^[* ]*//' | while read branch; do
+        echo "  - $branch"
     done
     
     # Show recent PRs
@@ -354,9 +343,9 @@ case "$1" in
         echo "  5. Optionally creates new worktree for next feature"
         echo ""
         echo -e "${YELLOW}Examples:${NC}"
-        echo "  ./management/feature-completion.sh complete docker-setup"
+        echo "  ./management/feature-completion.sh complete auth-feature"
         echo "  ./management/feature-completion.sh status"
-        echo "  ./management/feature-completion.sh cleanup database-layer"
+        echo "  ./management/feature-completion.sh cleanup auth-feature"
         ;;
     
     *)

@@ -1,24 +1,77 @@
 # MediBot Project Management
 
-This directory contains scripts and documentation for managing the MediBot development workflow using Git worktrees and feature completion processes.
+This directory contains scripts and documentation for managing the MediBot development workflow using simplified feature branches and automated PR processes.
+
+## Semantic PR Titles and Conventional Commits
+
+To avoid semantic PR checker errors, always use conventional commit prefixes in your PR titles:
+
+### Required PR Title Format
+```
+<type>: <description>
+```
+
+### Valid Types
+- **feat:** - New features (e.g., "feat: add user authentication")
+- **fix:** - Bug fixes (e.g., "fix: resolve login validation issue")
+- **docs:** - Documentation changes (e.g., "docs: update API documentation")
+- **style:** - Code style changes (e.g., "style: format code with prettier")
+- **refactor:** - Code refactoring (e.g., "refactor: simplify authentication logic")
+- **test:** - Adding or updating tests (e.g., "test: add unit tests for auth service")
+- **chore:** - Maintenance tasks (e.g., "chore: update dependencies")
+
+### Examples
+✅ **Correct:**
+- `feat: migrate to Supabase and enhance consultation flow`
+- `fix: resolve patient data validation issue`
+- `refactor: simplify project architecture and management system`
+- `docs: update deployment instructions`
+
+❌ **Incorrect:**
+- `Migrate to Supabase and enhance consultation flow`
+- `Fix patient data validation`
+- `Update documentation`
+
+### Why This Matters
+The project uses `amannn/action-semantic-pull-request@v5` which enforces conventional commit standards. This helps with:
+- Automated changelog generation
+- Semantic versioning
+- Release automation
+- Code review consistency
+
+## Quick Reference
+
+### PR Title Format (Required)
+```
+<type>: <description>
+```
+**Examples:** `feat: add user authentication`, `fix: resolve login issue`, `refactor: simplify auth logic`
+
+### Common Types
+- `feat:` - New features
+- `fix:` - Bug fixes  
+- `refactor:` - Code refactoring
+- `docs:` - Documentation
+- `test:` - Tests
+- `chore:` - Maintenance
 
 ## Scripts Overview
 
-### 1. `manage-worktrees.sh` - Worktree Management
-Handles creation, management, and coordination of multiple Git worktrees for parallel development.
+### 1. `feature-branch.sh` - Feature Branch Management
+Handles creation and management of feature branches for development.
 
 **Key Features:**
-- Create and remove worktrees for different features
-- Sync all worktrees with main branch
-- Show status and task mapping
-- Open worktrees in IDE/terminal
+- Create new feature branches from main
+- Show current branch status
+- Sync with main branch
+- List available features
 
 **Usage:**
 ```bash
-./management/manage-worktrees.sh list          # Show all worktrees
-./management/manage-worktrees.sh create auth   # Create new worktree
-./management/manage-worktrees.sh sync          # Sync all with main
-./management/manage-worktrees.sh tasks         # Show task mapping
+./management/feature-branch.sh create auth     # Create new feature branch
+./management/feature-branch.sh status          # Show current status
+./management/feature-branch.sh sync            # Sync with main
+./management/feature-branch.sh list            # List available features
 ```
 
 ### 2. `feature-completion.sh` - Feature Completion Workflow
@@ -28,50 +81,50 @@ Comprehensive script for completing features and cleaning up development environ
 1. **Update Specs & Todos** - Mark completed tasks in spec files
 2. **Create Comprehensive PR** - Generate detailed PR with GitHub CLI
 3. **Wait for Merge** - Interactive wait for PR approval and merge
-4. **Cleanup** - Remove worktree, delete branches, clean up Git
-5. **Next Feature** - Optionally create new worktree for next feature
+4. **Cleanup** - Delete branches, clean up Git
+5. **Next Feature** - Optionally create new branch for next feature
 
 **Usage:**
 ```bash
-./management/feature-completion.sh complete docker-setup  # Full workflow
+./management/feature-completion.sh complete auth-feature  # Full workflow
 ./management/feature-completion.sh status                 # Show status
-./management/feature-completion.sh cleanup auth          # Cleanup only
+./management/feature-completion.sh cleanup auth-feature   # Cleanup only
 ```
 
 ## Development Workflow
 
 ### Starting a New Feature
 
-1. **Create Worktree:**
+1. **Create Feature Branch:**
    ```bash
-   ./management/manage-worktrees.sh create feature-name
+   ./management/feature-branch.sh create feature-name
    ```
 
-2. **Open in IDE:**
+2. **Check Available Features:**
    ```bash
-   ./management/manage-worktrees.sh open feature-name
+   ./management/feature-branch.sh list
    ```
 
 3. **Check Task Mapping:**
    ```bash
-   ./management/manage-worktrees.sh tasks
+   ./management/feature-branch.sh tasks
    ```
 
 ### During Development
 
 1. **Sync with Main Regularly:**
    ```bash
-   ./management/manage-worktrees.sh sync
+   ./management/feature-branch.sh sync
    ```
 
 2. **Check Status:**
    ```bash
-   ./management/manage-worktrees.sh status
+   ./management/feature-branch.sh status
    ```
 
 3. **Push Changes:**
    ```bash
-   ./management/manage-worktrees.sh push
+   git push origin feature/feature-name
    ```
 
 ### Completing a Feature
@@ -88,48 +141,46 @@ Comprehensive script for completing features and cleaning up development environ
    - Confirm cleanup
 
 3. **Optional: Create Next Feature:**
-   - Script will offer to create next worktree
+   - Script will offer to create next branch
    - Choose from predefined features or custom name
 
 ## Feature Mapping
 
-Current worktree-to-task mapping:
+Current feature-to-task mapping:
 
-| Worktree | Tasks | Description |
-|----------|-------|-------------|
-| `docker-setup` | 1, 2.1 | Project structure and Docker environment |
-| `database-layer` | 2.2, 2.3, 2.4 | Patient, Anamnesis, and Consultation models |
-| `backend-api` | 3, 4 | Authentication and core API services |
-| `conversational-ai` | 5, 6 | AI conversation system and NLP processing |
-| `patient-interface` | 7 | React chat UI and accessibility features |
-| `doctor-interface` | 8 | Doctor dashboard and consultation management |
+| Feature | Tasks | Description | Status |
+|---------|-------|-------------|--------|
+| `core-setup` | 1, 2.1 | Project structure and Supabase environment | ✅ Completed |
+| `database-layer` | 2.2, 2.3, 2.4 | Patient, Anamnesis, and Consultation models | ✅ Completed |
+| `backend-api` | 3, 4 | Authentication and core API services | ✅ Completed |
+| `conversational-ai` | 5, 6 | AI conversation system and NLP processing | 🔄 Next |
+| `patient-interface` | 7 | React chat UI and accessibility features | 📋 Planned |
+| `doctor-interface` | 8 | Doctor dashboard and consultation management | 📋 Planned |
+| `livekit-integration` | 9 | Video consultation features | 📋 Planned |
 
 ## Prerequisites
 
 ### Required Tools
 
-1. **Git** - Version control with worktree support
+1. **Git** - Version control with feature branch support
 2. **GitHub CLI** - For PR creation and management
    ```bash
    brew install gh
    gh auth login
    ```
 
-3. **Node.js/npm** - For running the application
-4. **Docker** - For containerized development
+3. **Node.js 18+** - For running the application
+4. **Yarn** - Package manager
+5. **Supabase CLI** - For database management (optional)
 
 ### Directory Structure
 
 The scripts expect this directory structure:
 ```
-medibot-project/                    # Main repository
-├── management/                     # Management scripts
-├── .kiro/specs/                   # Specification files
-└── ...
-
-medibot-worktrees/                 # Worktrees directory (sibling)
-├── docker-setup/                 # Feature worktree
-├── database-layer/               # Feature worktree
+AngularHelper/                     # Main repository
+├── management/                    # Management scripts
+├── .kiro/specs/                  # Specification files
+├── src/                          # Source code
 └── ...
 ```
 
@@ -148,7 +199,7 @@ The feature completion script generates comprehensive PRs with:
 ## Best Practices
 
 ### Development
-- Keep worktrees focused on specific feature sets
+- Keep feature branches focused on specific features
 - Sync with main branch regularly to avoid conflicts
 - Write comprehensive commit messages
 - Test thoroughly before marking feature complete
@@ -161,7 +212,7 @@ The feature completion script generates comprehensive PRs with:
 - Clean up promptly after merge to keep environment tidy
 
 ### Branch Management
-- Use descriptive branch names (feature/docker-setup)
+- Use descriptive branch names (feature/auth-feature)
 - Delete branches after successful merge
 - Keep main branch clean and deployable
 - Use draft PRs for work-in-progress features
@@ -175,10 +226,12 @@ The feature completion script generates comprehensive PRs with:
    gh auth login
    ```
 
-2. **Worktree Directory Conflicts:**
+2. **Branch Conflicts:**
    ```bash
-   rm -rf ../medibot-worktrees/conflicted-branch
-   git worktree prune
+   git checkout main
+   git pull origin main
+   git checkout feature/your-branch
+   git rebase main
    ```
 
 3. **Branch Not Merged:**
@@ -202,7 +255,7 @@ The feature completion script generates comprehensive PRs with:
 These scripts integrate with Kiro's development workflow:
 
 - **Specs Integration** - Updates `.kiro/specs/` files automatically
-- **Task Tracking** - Maps worktrees to specific spec tasks
+- **Task Tracking** - Maps features to specific spec tasks
 - **Automated Cleanup** - Maintains clean development environment
 - **Documentation** - Generates comprehensive PR documentation
 
