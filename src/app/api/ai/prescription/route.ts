@@ -9,12 +9,12 @@ import {
   AISafetyChecker
 } from '@/lib/ai/utils';
 import { 
-  DoctorRecommendationsRequestSchema,
-  type DoctorRecommendationsRequest 
+  PrescriptionRequestSchema,
+  type PrescriptionRequest 
 } from '@/lib/ai/validation';
 import { 
-  DOCTOR_RECOMMENDATIONS_SYSTEM_PROMPT, 
-  DOCTOR_RECOMMENDATIONS_USER_PROMPT,
+  PRESCRIPTION_SYSTEM_PROMPT, 
+  PRESCRIPTION_USER_PROMPT,
   SAFETY_DISCLAIMER 
 } from '@/lib/ai/prompts';
 
@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
 
     // Parse and validate request body
     const body = await request.json();
-    const validationResult = DoctorRecommendationsRequestSchema.safeParse(body);
+    const validationResult = PrescriptionRequestSchema.safeParse(body);
     
     if (!validationResult.success) {
       return NextResponse.json(
@@ -55,15 +55,17 @@ export async function POST(request: NextRequest) {
     // Sanitize input
     const sanitizedData = {
       ...validatedData,
-      patientAnalysis: sanitizeInput(validatedData.patientAnalysis),
-      doctorNotes: sanitizeInput(validatedData.doctorNotes),
+      doctorRecommendations: sanitizeInput(validatedData.doctorRecommendations),
+      additionalContext: validatedData.additionalContext ? sanitizeInput(validatedData.additionalContext) : undefined,
     };
 
-    // Safety check for both patient analysis and doctor notes
-    const patientAnalysisSafety = AISafetyChecker.checkMedicalSafety(sanitizedData.patientAnalysis);
-    const doctorNotesSafety = AISafetyChecker.checkMedicalSafety(sanitizedData.doctorNotes);
+    // Safety check for doctor recommendations and additional context
+    const recommendationsSafety = AISafetyChecker.checkMedicalSafety(sanitizedData.doctorRecommendations);
+    const contextSafety = sanitizedData.additionalContext ? 
+      AISafetyChecker.checkMedicalSafety(sanitizedData.additionalContext) : 
+      { safe: true, warnings: [] };
     
-    if (!patientAnalysisSafety.safe || !doctorNotesSafety.safe) {
+    if (!recommendationsSafety.safe || !contextSafety.safe) {
       return NextResponse.json(
         AIResponseFormatter.formatErrorResponse(
           'Content contains potentially concerning keywords. Please review your input.',
@@ -74,10 +76,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate AI prompt
-    const userPrompt = DOCTOR_RECOMMENDATIONS_USER_PROMPT(sanitizedData);
+    const userPrompt = PRESCRIPTION_USER_PROMPT(sanitizedData);
     
     // Call OpenAI
-    const aiResponse = await callOpenAI(userPrompt, DOCTOR_RECOMMENDATIONS_SYSTEM_PROMPT);
+    const aiResponse = await callOpenAI(userPrompt, PRESCRIPTION_SYSTEM_PROMPT);
     
     // Parse AI response
     let parsedResponse;
@@ -86,15 +88,21 @@ export async function POST(request: NextRequest) {
     } catch (parseError) {
       // If JSON parsing fails, return the raw response with a warning
       parsedResponse = {
-        treatmentPlan: {
-          primaryRecommendations: [],
+        prescription: {
+          header: {
+            doctorName: 'Dr. [Name]',
+            licenseNumber: 'LIC-XXXXX',
+            date: new Date().toISOString().split('T')[0],
+            patientId: sanitizedData.patientId || 'N/A',
+            doctorId: sanitizedData.doctorId || 'N/A'
+          },
           medications: [],
-          examinations: [],
-          lifestyleRecommendations: [],
-          followUp: aiResponse
+          instructions: aiResponse,
+          warnings: ['AI response could not be parsed as JSON. Please review manually.'],
+          followUp: 'Please review this prescription manually.',
+          signature: 'Digital signature placeholder'
         },
-        safetyConsiderations: [],
-        contraindications: [],
+        disclaimer: SAFETY_DISCLAIMER,
         notes: 'AI response could not be parsed as JSON. Please review manually.',
         rawResponse: aiResponse
       };
@@ -105,8 +113,8 @@ export async function POST(request: NextRequest) {
       ...parsedResponse,
       disclaimer: SAFETY_DISCLAIMER,
       warnings: [
-        ...patientAnalysisSafety.warnings,
-        ...doctorNotesSafety.warnings
+        ...recommendationsSafety.warnings,
+        ...contextSafety.warnings
       ],
       timestamp: new Date().toISOString(),
     };
@@ -117,7 +125,7 @@ export async function POST(request: NextRequest) {
     );
 
   } catch (error) {
-    console.error('Doctor Recommendations Error:', error);
+    console.error('Prescription Generation Error:', error);
     
     const errorResponse = AIErrorHandler.handleOpenAIError(error);
     return NextResponse.json(errorResponse, { status: 500 });
@@ -127,17 +135,18 @@ export async function POST(request: NextRequest) {
 export async function GET() {
   return NextResponse.json({
     success: true,
-    message: 'Doctor Recommendations endpoint is running',
-    description: 'Generates comprehensive treatment recommendations based on patient analysis and doctor notes',
+    message: 'Prescription Generation endpoint is running',
+    description: 'Generates professional prescription documents based on doctor recommendations',
     requiredFields: [
-      'patientAnalysis (string, min 10 chars)',
-      'doctorNotes (string, min 5 chars, max 1000 chars)'
+      'doctorRecommendations (string, min 10 chars)'
     ],
     optionalFields: [
       'patientId (string)',
+      'doctorId (string)',
       'consultationId (string)',
-      'urgency (low|medium|high|emergency)'
+      'additionalContext (string)',
+      'prescriptionType (medication|examination|referral|lifestyle)'
     ],
     timestamp: new Date().toISOString(),
   });
-}
+} 

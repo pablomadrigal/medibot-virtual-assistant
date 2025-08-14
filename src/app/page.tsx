@@ -46,10 +46,16 @@ export default function Home() {
         {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Link
-            href="/patient"
+            href="/consultation"
             className="bg-medical-600 hover:bg-medical-700 text-white px-8 py-3 rounded-lg font-semibold transition-colors text-center"
           >
-            Start Patient Consultation
+            AI Medical Consultation
+          </Link>
+          <Link
+            href="/patient"
+            className="bg-white hover:bg-gray-50 text-medical-600 border-2 border-medical-600 px-8 py-3 rounded-lg font-semibold transition-colors text-center"
+          >
+            Patient Dashboard
           </Link>
           <Link
             href="/doctor"
