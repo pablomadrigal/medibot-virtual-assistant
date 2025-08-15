@@ -98,9 +98,33 @@ export const VoiceAgentInterface: React.FC<VoiceAgentInterfaceProps> = ({ onBack
       setLoading(true);
       console.log('🔗 Attempting to connect to agent...');
       
+      // Generate room token
       const token = await generateRoomToken();
       console.log('🎫 Room token generated successfully');
       
+      // Create agent job
+      const roomName = 'medical-consultation-' + Date.now();
+      const participantName = 'patient-' + Math.random().toString(36).substr(2, 9);
+      
+      const agentJobResponse = await fetch('/api/livekit/agent-job', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          roomName,
+          participantName,
+        }),
+      });
+
+      if (!agentJobResponse.ok) {
+        throw new Error('Failed to create agent job');
+      }
+
+      const agentJob = await agentJobResponse.json();
+      console.log('🤖 Agent job created:', agentJob);
+      
+      // Connect to the room
       await room.connect(LIVEKIT_URL, token);
       console.log('✅ Connected to LiveKit room');
       
