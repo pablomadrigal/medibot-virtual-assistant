@@ -1,7 +1,7 @@
 // AI Library Exports
 
 // Client and configuration
-export { openai, AI_CONFIG, RATE_LIMIT_CONFIG, MEDICAL_SAFETY_CONFIG } from './client';
+export { openai, AI_CONFIG, RATE_LIMIT_CONFIG } from './client';
 
 // Validation schemas and types
 export {

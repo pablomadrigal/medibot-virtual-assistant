@@ -1,9 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import OpenAI from 'openai';
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || ''
-});
+import { getOpenAI } from '@/lib/ai/utils';
 
 export async function POST(request: NextRequest) {
   try {
@@ -23,6 +19,7 @@ export async function POST(request: NextRequest) {
 
     console.log('🔊 Starting TTS conversion for text:', text.substring(0, 50) + '...');
 
+    const openai = getOpenAI();
     const speechResponse = await openai.audio.speech.create({
       model: 'tts-1',
       voice: 'alloy',

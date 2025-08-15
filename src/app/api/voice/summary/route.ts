@@ -1,9 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import OpenAI from 'openai';
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+import { getOpenAI } from '@/lib/ai/utils';
 
 // Retry configuration
 const MAX_RETRIES = 3;
@@ -92,6 +88,7 @@ export async function POST(request: NextRequest) {
 
     console.log('🧠 Starting GPT-4 summary generation...');
 
+    const openai = getOpenAI();
     const completion = await retryOpenAIRequest(() => 
       openai.chat.completions.create({
         model: 'gpt-4',

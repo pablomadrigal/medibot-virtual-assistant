@@ -1,4 +1,5 @@
 import OpenAI from 'openai';
+import { isOpenAIConfigured } from './utils';
 
 // Validate OpenAI API key
 const openaiApiKey = process.env.OPENAI_API_KEY;
@@ -14,11 +15,6 @@ if (!openaiApiKey) {
   console.warn('⚠️  OPENAI_API_KEY is not configured. AI features will be disabled.');
 }
 
-// Helper function to check if OpenAI is available
-export const isOpenAIAvailable = () => {
-  return openai !== null;
-};
-
 // AI model configuration
 export const AI_CONFIG = {
   model: 'gpt-4' as const,
@@ -33,11 +29,4 @@ export const AI_CONFIG = {
 export const RATE_LIMIT_CONFIG = {
   maxRequestsPerMinute: 10,
   maxRequestsPerHour: 100,
-};
-
-// Medical safety configuration
-export const MEDICAL_SAFETY_CONFIG = {
-  enableDisclaimers: true,
-  requireMedicalContext: true,
-  enableSafetyChecks: true,
 }; 

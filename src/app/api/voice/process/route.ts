@@ -1,9 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import OpenAI from 'openai';
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || ''
-});
+import { getOpenAI } from '@/lib/ai/utils';
 
 // Medical consultation system prompt in Spanish
 const getSystemPrompt = (step: string) => {
@@ -148,6 +144,7 @@ export async function POST(request: NextRequest) {
       // 1b. Convert speech to text using Whisper
       console.log('🎤 Starting Whisper transcription...');
       try {
+        const openai = getOpenAI();
         const transcription = await openai.audio.transcriptions.create({
           file: audioFile,
           model: 'whisper-1',
@@ -186,6 +183,7 @@ export async function POST(request: NextRequest) {
 
     let agentResponse = '';
     try {
+      const openai = getOpenAI();
       const completion = await openai.chat.completions.create({
         model: 'gpt-4',
         messages: messages as any,
@@ -204,6 +202,7 @@ export async function POST(request: NextRequest) {
     console.log('🔊 Starting TTS conversion...');
     let audioBase64 = '';
     try {
+      const openai = getOpenAI();
       const speechResponse = await openai.audio.speech.create({
         model: 'tts-1',
         voice: 'alloy',
