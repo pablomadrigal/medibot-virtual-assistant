@@ -1,0 +1,15 @@
+# LiveKit Agents with STT-LLM-TTS pipeline
+livekit-agents[deepgram,openai,cartesia,silero,turn-detector]==1.2.5
+
+# Noise cancellation plugin for LiveKit Cloud
+livekit-plugins-noise-cancellation==0.2.5
+
+# Environment variable management
+python-dotenv==1.0.1
+
+# OpenAI for LLM (compatible with livekit-plugins-openai)
+openai>=1.99.2
+
+# Additional utilities
+asyncio-mqtt==0.16.2
+websockets>=13.0

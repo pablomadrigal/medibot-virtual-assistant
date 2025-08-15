@@ -41,8 +41,8 @@ export {
   type SecurityHeadersOptions 
 };
 
-// Named export for convenience (fixes ESLint warning)
-export const SecurityModule = {
+// Default export for convenience
+const securityModule = {
   EncryptionService,
   InputSanitizer,
   CORSService,
@@ -50,5 +50,4 @@ export const SecurityModule = {
   validationSchemas
 };
 
-// Default export for backward compatibility
-export default SecurityModule;
+export default securityModule;

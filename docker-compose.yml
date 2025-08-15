@@ -1,0 +1,64 @@
+version: '3.8'
+
+services:
+  livekit-agent:
+    build: ./agent
+    container_name: medical-consultation-agent
+    environment:
+      # LiveKit Configuration
+      - LIVEKIT_URL=${LIVEKIT_URL}
+      - LIVEKIT_API_KEY=${LIVEKIT_API_KEY}
+      - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET}
+      
+      # AI Provider Keys
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - DEEPGRAM_API_KEY=${DEEPGRAM_API_KEY}
+      - CARTESIA_API_KEY=${CARTESIA_API_KEY}
+      
+      # Agent Configuration
+      - AGENT_NAME=medical-consultation-agent
+      - AGENT_DESCRIPTION=Medical consultation agent in Spanish
+      
+      # Logging
+      - LOG_LEVEL=INFO
+    volumes:
+      # Persist model files
+      - ./agent/models:/app/models
+      # Mount logs
+      - ./logs:/app/logs
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8080/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - medical-network
+
+  # Optional: Add a simple health check service
+  agent-health:
+    image: curlimages/curl:latest
+    container_name: agent-health-check
+    depends_on:
+      - livekit-agent
+    command: >
+      sh -c "
+        echo 'Waiting for agent to be ready...' &&
+        while ! curl -f http://livekit-agent:8080/health; do
+          sleep 5;
+        done &&
+        echo 'Agent is ready!'
+      "
+    networks:
+      - medical-network
+
+networks:
+  medical-network:
+    driver: bridge
+
+volumes:
+  agent-models:
+    driver: local

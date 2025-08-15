@@ -30,6 +30,12 @@ export interface Consultation {
   createdAt: Date;
 }
 
+export interface ConversationMessage {
+  role: 'user' | 'assistant';
+  text: string;
+  timestamp?: Date;
+}
+
 export interface ConversationState {
   sessionId: string;
   currentPhase: 'greeting' | 'anamnesis' | 'closure';

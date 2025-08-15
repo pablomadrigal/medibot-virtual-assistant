@@ -2,6 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Fallback styles in case Tailwind doesn't load */
+@layer base {
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    line-height: 1.5;
+  }
+}
+
 @layer components {
   /* Medical theme specific styles */
   .medical-gradient {
@@ -50,7 +58,21 @@
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     @apply bg-gray-400;
   }
+}
 
+/* Fallback medical colors in case Tailwind custom colors don't load */
+.bg-medical-50 { background-color: #f0f9ff; }
+.bg-medical-100 { background-color: #e0f2fe; }
+.bg-medical-600 { background-color: #0284c7; }
+.bg-medical-700 { background-color: #0369a1; }
+.text-medical-600 { color: #0284c7; }
+.text-success-600 { color: #16a34a; }
+.bg-success-100 { background-color: #f0fdf4; }
+.text-success-800 { color: #166534; }
+.bg-warning-100 { background-color: #fffbeb; }
+.text-warning-800 { color: #92400e; }
+
+@layer components {
   /* Consultation UI specific styles */
   .btn-primary {
     @apply bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium transition-colors;

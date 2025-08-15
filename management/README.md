@@ -156,7 +156,7 @@ Current feature-to-task mapping:
 | `conversational-ai` | 5, 6 | AI conversation system and NLP processing | 🔄 Next |
 | `patient-interface` | 7 | React chat UI and accessibility features | 📋 Planned |
 | `doctor-interface` | 8 | Doctor dashboard and consultation management | 📋 Planned |
-| `livekit-integration` | 9 | Video consultation features | 📋 Planned |
+| `livekit-integration` | 9 | Video consultation features | 🔄 Partially Implemented |
 
 ## Prerequisites
 

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import OpenAI from 'openai';
 import { openai, AI_CONFIG, RATE_LIMIT_CONFIG } from './client';
 import { AIResponseSchema, AIErrorResponseSchema, RateLimitErrorSchema, type AIErrorResponse } from './validation';
 
@@ -159,4 +160,24 @@ export async function callOpenAI(prompt: string, systemPrompt?: string): Promise
   } catch (error) {
     throw error;
   }
-} 
+}
+
+/**
+ * Initialize OpenAI client only when needed, not at module level
+ * This prevents build-time errors when OPENAI_API_KEY is not available
+ */
+export const getOpenAI = () => {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error('OPENAI_API_KEY is not configured');
+  }
+  return new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  });
+};
+
+/**
+ * Check if OpenAI API key is configured
+ */
+export const isOpenAIConfigured = () => {
+  return !!process.env.OPENAI_API_KEY;
+}; 
