@@ -12,6 +12,7 @@ MediBot consists of four main components:
 
 ## 🚀 Features
 
+- **Continuous Voice Interaction**: Professional voice activity detection and turn detection - no need for manual talk buttons
 - **Real-time Voice Consultation**: LiveKit-powered voice interaction with AI agent
 - **Multi-language Support**: Spanish-speaking medical assistant
 - **Structured Medical Flow**: Three-phase consultation process (patient input, doctor review, prescription)
@@ -35,11 +36,15 @@ MediBot consists of four main components:
 - Next.js 14 with TypeScript
 - React with Tailwind CSS
 - LiveKit Client for real-time voice communication
+- Web Audio API for voice activity detection
+- MediaRecorder API for continuous audio capture
 
 **Backend:**
 - Next.js API Routes
 - Supabase for database and authentication
 - JWT authentication with role-based access control
+- OpenAI Whisper for speech-to-text
+- OpenAI TTS for text-to-speech
 
 **AI Agent (Python):**
 - LiveKit Agents framework
@@ -47,6 +52,27 @@ MediBot consists of four main components:
 - Deepgram for Speech-to-Text (STT)
 - Cartesia for Text-to-Speech (TTS)
 - Docker containerization
+
+## 🎤 Voice Features
+
+**Continuous Voice Interaction:**
+- **Voice Activity Detection**: Automatically detects when the user starts and stops speaking
+- **Turn Detection**: Intelligently determines when the user has finished speaking
+- **Real-time Audio Processing**: Processes voice input continuously without manual intervention
+- **Professional UI**: Clean, medical-grade interface with visual feedback
+- **Audio Level Monitoring**: Real-time visualization of voice input levels
+- **Automatic Transcription**: Converts speech to text using OpenAI Whisper
+- **Natural Responses**: AI responds with natural, conversational Spanish
+
+**How it Works:**
+1. User connects to the voice consultation
+2. System automatically starts listening for voice input
+3. When voice is detected, recording begins automatically
+4. When silence is detected (1.5 seconds), recording stops
+5. Audio is processed and transcribed to text
+6. AI generates a response and converts it to speech
+7. Response is played back to the user
+8. Process continues seamlessly for natural conversation flow
 
 **Infrastructure:**
 - Supabase cloud database (PostgreSQL)

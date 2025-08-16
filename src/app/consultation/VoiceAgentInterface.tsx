@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Room, RoomEvent, RemoteParticipant, LocalParticipant, DataPacket_Kind, Track } from 'livekit-client';
-import { Mic, MicOff, Phone, PhoneOff, MessageSquare, Volume2, VolumeX, Play, Pause, CheckCircle } from 'lucide-react';
+import { Room, RoomEvent, RemoteParticipant, Track } from 'livekit-client';
+import { Phone, PhoneOff, MessageSquare, Volume2, VolumeX, CheckCircle, User, Bot } from 'lucide-react';
 import { ConversationMessage } from '@/types';
 
 interface VoiceAgentInterfaceProps {
@@ -14,13 +14,18 @@ export const VoiceAgentInterface: React.FC<VoiceAgentInterfaceProps> = ({ onBack
   const [isConnected, setIsConnected] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isAgentSpeaking, setIsAgentSpeaking] = useState(false);
+  const [isUserSpeaking, setIsUserSpeaking] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
-  const [transcript, setTranscript] = useState<string>('');
   const [agentResponse, setAgentResponse] = useState<string>('');
   const [consultationStep, setConsultationStep] = useState<'patient-input' | 'doctor-review' | 'prescription'>('patient-input');
   const [loading, setLoading] = useState(false);
   const [conversationHistory, setConversationHistory] = useState<ConversationMessage[]>([]);
   const [showStepComplete, setShowStepComplete] = useState(false);
+  const [audioLevel, setAudioLevel] = useState(0);
+  const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected' | 'error'>('disconnected');
+  const [errorMessage, setErrorMessage] = useState<string>('');
+  
   const [stepHistories, setStepHistories] = useState<{
     'patient-input': ConversationMessage[];
     'doctor-review': ConversationMessage[];
@@ -34,61 +39,165 @@ export const VoiceAgentInterface: React.FC<VoiceAgentInterfaceProps> = ({ onBack
   const [consultationData, setConsultationData] = useState<{
     patientAnalysis?: any;
     doctorRecommendations?: any;
-    prescription?: any;
   }>({});
   
-  const audioRef = useRef<HTMLAudioElement>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const microphoneRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
   const transcriptRef = useRef<HTMLDivElement>(null);
+  const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
 
-  // LiveKit configuration from environment variables
   const LIVEKIT_URL = process.env.NEXT_PUBLIC_LIVEKIT_URL || 'wss://your-livekit-server.com';
 
+  // Auto-scroll to bottom of transcript
   useEffect(() => {
-    // Initialize LiveKit room
+    if (transcriptRef.current) {
+      transcriptRef.current.scrollTop = transcriptRef.current.scrollHeight;
+    }
+  }, [conversationHistory]);
+
+  // Audio level monitoring
+  useEffect(() => {
+    if (!isUserSpeaking || !analyserRef.current) {
+      setAudioLevel(0);
+      return;
+    }
+
+    const updateAudioLevel = () => {
+      const dataArray = new Uint8Array(analyserRef.current!.frequencyBinCount);
+      analyserRef.current!.getByteFrequencyData(dataArray);
+      const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
+      setAudioLevel(average);
+      animationFrameRef.current = requestAnimationFrame(updateAudioLevel);
+    };
+
+    updateAudioLevel();
+
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, [isUserSpeaking]);
+
+  // Function to play AI agent's voice response
+  const playAgentVoice = async (text: string) => {
+    try {
+      setIsAgentSpeaking(true);
+      
+      const response = await fetch('/api/voice/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate speech');
+      }
+
+      const result = await response.json();
+      
+      if (result.success && result.audioBase64) {
+        // Convert base64 to audio blob
+        const audioData = atob(result.audioBase64);
+        const audioArray = new Uint8Array(audioData.length);
+        for (let i = 0; i < audioData.length; i++) {
+          audioArray[i] = audioData.charCodeAt(i);
+        }
+        
+        const audioBlob = new Blob([audioArray], { type: 'audio/mpeg' });
+        const audioUrl = URL.createObjectURL(audioBlob);
+        
+        // Create and play audio
+        if (audioPlayerRef.current) {
+          audioPlayerRef.current.pause();
+        }
+        
+        const audio = new Audio(audioUrl);
+        audioPlayerRef.current = audio;
+        
+        audio.onended = () => {
+          setIsAgentSpeaking(false);
+          URL.revokeObjectURL(audioUrl);
+        };
+        
+        audio.onerror = () => {
+          setIsAgentSpeaking(false);
+          URL.revokeObjectURL(audioUrl);
+          console.error('Error playing audio');
+        };
+        
+        await audio.play();
+      } else {
+        setIsAgentSpeaking(false);
+        console.error('TTS failed:', result.error);
+      }
+    } catch (error) {
+      console.error('Error playing agent voice:', error);
+      setIsAgentSpeaking(false);
+    }
+  };
+
+  // Initialize LiveKit room with professional configuration
+  useEffect(() => {
     const initializeRoom = async () => {
       try {
         const newRoom = new Room({
           adaptiveStream: true,
           dynacast: true,
+          // LiveKit recommended audio capture settings for voice activity detection
+          audioCaptureDefaults: {
+            autoGainControl: true,
+            echoCancellation: true,
+            noiseSuppression: true,
+          },
         });
 
         // Set up room event listeners
-        newRoom.on(RoomEvent.ParticipantConnected, (participant: RemoteParticipant) => {
-          console.log('Agent connected:', participant.identity);
-          setIsAgentSpeaking(true);
+        newRoom.on(RoomEvent.ActiveSpeakersChanged, (speakers: any[]) => {
+          const localParticipant = newRoom.localParticipant;
+          const isLocalSpeaking = speakers.some(speaker => speaker.identity === localParticipant.identity);
+          setIsUserSpeaking(isLocalSpeaking);
         });
 
-        newRoom.on(RoomEvent.ParticipantDisconnected, (participant: RemoteParticipant) => {
-          console.log('Agent disconnected:', participant.identity);
+        newRoom.on(RoomEvent.Disconnected, () => {
+          setIsConnected(false);
+          setConnectionStatus('disconnected');
+          setIsUserSpeaking(false);
           setIsAgentSpeaking(false);
         });
 
-        newRoom.on(RoomEvent.DataReceived, (payload: Uint8Array, participant?: RemoteParticipant) => {
-          try {
-            const data = new TextDecoder().decode(payload);
-            const parsedData = JSON.parse(data);
-            
-            if (parsedData.type === 'agent_response') {
-              setAgentResponse(parsedData.text);
-              setIsAgentSpeaking(true);
-              setConversationHistory(prev => [...prev, { role: 'assistant', text: parsedData.text }]);
-              
-              setTimeout(() => {
-                setIsAgentSpeaking(false);
-              }, 3000);
-            }
-          } catch (error) {
-            console.error('Error parsing data:', error);
+        newRoom.on(RoomEvent.ConnectionStateChanged, (state) => {
+          if (state === 'connected') {
+            setConnectionStatus('connected');
+          } else if (state === 'connecting') {
+            setConnectionStatus('connecting');
+          } else if (state === 'disconnected') {
+            setConnectionStatus('disconnected');
           }
         });
 
         setRoom(newRoom);
       } catch (error) {
         console.error('Error initializing room:', error);
+        setConnectionStatus('error');
+        setErrorMessage('Failed to initialize voice connection');
       }
     };
 
     initializeRoom();
+
+    return () => {
+      if (room) {
+        room.disconnect();
+      }
+      // Clean up audio player on unmount
+      if (audioPlayerRef.current) {
+        audioPlayerRef.current.pause();
+        audioPlayerRef.current = null;
+      }
+    };
   }, []);
 
   const connectToAgent = async () => {
@@ -96,83 +205,286 @@ export const VoiceAgentInterface: React.FC<VoiceAgentInterfaceProps> = ({ onBack
     
     try {
       setLoading(true);
-      console.log('🔗 Attempting to connect to agent...');
+      setConnectionStatus('connecting');
+      setErrorMessage('');
       
-      // Generate room token
       const token = await generateRoomToken();
-      console.log('🎫 Room token generated successfully');
-      
-      // Connect to the room (agent will automatically join as it's already running)
       await room.connect(LIVEKIT_URL, token);
-      console.log('✅ Connected to LiveKit room');
       
       setIsConnected(true);
       setLoading(false);
+      await enableContinuousAudio();
       
-      // Initial greeting from agent with real voice synthesis
-      setTimeout(async () => {
-        const greeting = "Hola, soy su asistente médico virtual. Vamos a recopilar su información médica. ¿Cuáles son sus síntomas principales?";
-        setAgentResponse(greeting);
-        setConversationHistory(prev => [...prev, { role: 'assistant', text: greeting }]);
-        
-        try {
-          // Generate voice for greeting
-          const response = await fetch('/api/voice/tts', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text: greeting })
-          });
-          
-          if (response.ok) {
-            const result = await response.json();
-            if (result.audioBase64) {
-              const audioBlob = new Blob([Uint8Array.from(atob(result.audioBase64), c => c.charCodeAt(0))], 
-                { type: 'audio/mpeg' });
-              const audioUrl = URL.createObjectURL(audioBlob);
-              const audio = new Audio(audioUrl);
-              
-              setIsAgentSpeaking(true);
-              audio.onended = () => {
-                setIsAgentSpeaking(false);
-                URL.revokeObjectURL(audioUrl);
-              };
-              
-              await audio.play();
-            }
-          } else {
-            // Fallback: just show speaking animation
-            setIsAgentSpeaking(true);
-            setTimeout(() => setIsAgentSpeaking(false), 1500);
-          }
-        } catch (error) {
-          console.error('Error generating greeting audio:', error);
-          // Fallback: just show speaking animation
-          setIsAgentSpeaking(true);
-          setTimeout(() => setIsAgentSpeaking(false), 1500);
-        }
-      }, 1000);
+      // Initial greeting
+      const greeting = "Hola, soy su asistente médico virtual. Estoy aquí para ayudarle con su consulta. ¿Cuáles son sus síntomas principales?";
+      setAgentResponse(greeting);
+      setConversationHistory(prev => [...prev, { role: 'assistant', text: greeting }]);
+      await playAgentVoice(greeting);
+      
     } catch (error) {
       console.error('Failed to connect to room:', error);
       setLoading(false);
+      setConnectionStatus('error');
+      setErrorMessage('Failed to connect to voice agent');
     }
   };
+
+  const enableContinuousAudio = async () => {
+    try {
+      await room!.localParticipant.setMicrophoneEnabled(true);
+      
+      const microphonePublication = room!.localParticipant.getTrackPublication(Track.Source.Microphone);
+      const stream = microphonePublication?.track?.mediaStream || 
+        await navigator.mediaDevices.getUserMedia({ 
+          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } 
+        });
+      
+      audioContextRef.current = new AudioContext();
+      microphoneRef.current = audioContextRef.current.createMediaStreamSource(stream);
+      analyserRef.current = audioContextRef.current.createAnalyser();
+      analyserRef.current.fftSize = 256;
+      microphoneRef.current.connect(analyserRef.current);
+      
+      setupVoiceActivityDetection(stream);
+    } catch (error) {
+      console.error('Error enabling continuous audio:', error);
+      setErrorMessage('Failed to enable microphone');
+    }
+  };
+
+  const setupVoiceActivityDetection = (stream: MediaStream) => {
+    let isRecording = false;
+    let audioChunks: Blob[] = [];
+    let mediaRecorder: MediaRecorder | null = null;
+    let silenceTimeout: NodeJS.Timeout | null = null;
+    let recordingStartTime: number = 0;
+    let lastVoiceActivity: number = 0;
+    let isProcessing = false;
+
+    // Configuration for voice activity detection
+    const SILENCE_DURATION = 3000; // 3 seconds of silence before stopping
+    const MIN_RECORDING_DURATION = 2000; // Minimum 2 seconds of recording
+    const MAX_RECORDING_DURATION = 30000; // Maximum 30 seconds of recording
+    const AUDIO_LEVEL_THRESHOLD = 10; // Minimum audio level to consider as voice activity
+
+    const startRecording = () => {
+      if (isRecording || isProcessing) return;
+      
+      console.log('🎤 Starting voice recording...');
+      isRecording = true;
+      setIsRecording(true);
+      recordingStartTime = Date.now();
+      audioChunks = [];
+      
+      // Clear any existing silence timeout
+      if (silenceTimeout) {
+        clearTimeout(silenceTimeout);
+        silenceTimeout = null;
+      }
+      
+      mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+      
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunks.push(event.data);
+        }
+      };
+      
+      mediaRecorder.onstop = async () => {
+        if (audioChunks.length > 0) {
+          const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+          const recordingDuration = Date.now() - recordingStartTime;
+          
+          // Only process if recording is long enough and has sufficient data
+          if (audioBlob.size > 5000 && recordingDuration >= MIN_RECORDING_DURATION) {
+            console.log(`🎤 Processing voice input (${recordingDuration}ms, ${audioBlob.size} bytes)`);
+            isProcessing = true;
+            await processVoiceInput(audioBlob);
+            isProcessing = false;
+          } else {
+            console.log(`🎤 Skipping short recording (${recordingDuration}ms, ${audioBlob.size} bytes)`);
+          }
+        }
+        isRecording = false;
+        setIsRecording(false);
+      };
+      
+      mediaRecorder.start();
+    };
+
+    const stopRecording = () => {
+      if (!isRecording || !mediaRecorder) return;
+      
+      const recordingDuration = Date.now() - recordingStartTime;
+      
+      // Don't stop if recording is too short
+      if (recordingDuration < MIN_RECORDING_DURATION) {
+        console.log(`🎤 Recording too short (${recordingDuration}ms), continuing...`);
+        return;
+      }
+      
+      // Don't stop if recording is too long (force stop)
+      if (recordingDuration >= MAX_RECORDING_DURATION) {
+        console.log(`🎤 Recording too long (${recordingDuration}ms), forcing stop...`);
+      }
+      
+      console.log(`🎤 Stopping voice recording (${recordingDuration}ms)`);
+      mediaRecorder.stop();
+    };
+
+    const handleVoiceActivity = (isSpeaking: boolean) => {
+      const now = Date.now();
+      
+      if (isSpeaking) {
+        lastVoiceActivity = now;
+        
+        // Start recording if not already recording
+        if (!isRecording && !isProcessing) {
+          startRecording();
+        }
+        
+        // Clear any existing silence timeout
+        if (silenceTimeout) {
+          clearTimeout(silenceTimeout);
+          silenceTimeout = null;
+        }
+      } else if (isRecording) {
+        // Set timeout to stop recording after silence
+        if (silenceTimeout) {
+          clearTimeout(silenceTimeout);
+        }
+        
+        silenceTimeout = setTimeout(() => {
+          const timeSinceLastActivity = now - lastVoiceActivity;
+          if (timeSinceLastActivity >= SILENCE_DURATION) {
+            stopRecording();
+          }
+        }, SILENCE_DURATION);
+      }
+    };
+
+    if (room) {
+      room.on(RoomEvent.ActiveSpeakersChanged, (speakers: any[]) => {
+        const localParticipant = room.localParticipant;
+        const isLocalSpeaking = speakers.some(speaker => speaker.identity === localParticipant.identity);
+        handleVoiceActivity(isLocalSpeaking);
+      });
+    }
+  };
+
+  const processVoiceInput = async (audioBlob: Blob) => {
+    try {
+      setIsProcessing(true);
+      
+      // Convert Blob to base64 using FileReader (more efficient for large files)
+      const base64Audio = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result as string;
+          // Remove the data URL prefix (e.g., "data:audio/webm;base64,")
+          const base64 = result.split(',')[1];
+          resolve(base64);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(audioBlob);
+      });
+      
+      const response = await fetch('/api/voice/continuous', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          audioData: base64Audio,
+          conversationHistory: conversationHistory,
+          consultationStep: consultationStep,
+          isText: false,
+          sessionId: Date.now().toString()
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to process voice input');
+      }
+
+      const result = await response.json();
+      
+      if (result.success) {
+        setConversationHistory(prev => [...prev, { role: 'user', text: result.transcript }]);
+        setConversationHistory(prev => [...prev, { role: 'assistant', text: result.response }]);
+        setAgentResponse(result.response);
+        
+        // Play the AI agent's voice response
+        await playAgentVoice(result.response);
+        
+        if (result.stepComplete) {
+          setShowStepComplete(true);
+          if (result.analysisData) {
+            if (consultationStep === 'patient-input') {
+              setConsultationData(prev => ({ ...prev, patientAnalysis: result.analysisData }));
+            } else if (consultationStep === 'doctor-review') {
+              setConsultationData(prev => ({ ...prev, doctorRecommendations: result.analysisData }));
+            }
+          }
+        } else {
+          setConsultationStep(result.nextStep);
+        }
+      } else {
+        throw new Error(result.error || 'Error processing voice input');
+      }
+
+    } catch (error) {
+      console.error('Error processing voice input:', error);
+      setAgentResponse('Error procesando voz. Inténtelo de nuevo.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+
 
   const disconnectFromAgent = async () => {
     if (room) {
       await room.disconnect();
       setIsConnected(false);
-      setTranscript('');
+      setConnectionStatus('disconnected');
       setAgentResponse('');
       setConsultationStep('patient-input');
       setConversationHistory([]);
+      setIsUserSpeaking(false);
+      setIsAgentSpeaking(false);
       setIsRecording(false);
+      setErrorMessage('');
+      
+      // Clean up audio context
+      if (audioContextRef.current) {
+        await audioContextRef.current.close();
+        audioContextRef.current = null;
+      }
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+      
+      // Clean up audio player
+      if (audioPlayerRef.current) {
+        audioPlayerRef.current.pause();
+        audioPlayerRef.current = null;
+      }
     }
   };
 
   const toggleMute = async () => {
-    // For now, we'll just toggle the mute state visually
-    // In a real implementation, this would control the actual audio track
-    setIsMuted(!isMuted);
+    if (!room) return;
+    
+    try {
+      if (isMuted) {
+        await room.localParticipant.setMicrophoneEnabled(true);
+        setIsMuted(false);
+      } else {
+        await room.localParticipant.setMicrophoneEnabled(false);
+        setIsMuted(true);
+      }
+    } catch (error) {
+      console.error('Error toggling mute:', error);
+    }
   };
 
   const generateRoomToken = async (): Promise<string> => {
@@ -203,81 +515,6 @@ export const VoiceAgentInterface: React.FC<VoiceAgentInterfaceProps> = ({ onBack
     }
   };
 
-  const startRecording = async () => {
-    if (!isConnected || !room) return;
-    
-    try {
-      setIsRecording(true);
-      setTranscript(prev => prev + '\n[Grabando...]');
-      setLoading(true);
-
-      // Get user media (microphone access)
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      
-      // Enable microphone for LiveKit room
-      await room.localParticipant.setMicrophoneEnabled(true);
-      
-      console.log('🎤 Audio track published to LiveKit room');
-      
-      // Set up audio track event listeners for agent responses
-      room.on(RoomEvent.TrackSubscribed, (track, publication, participant) => {
-        if (track.kind === Track.Kind.Audio && participant.identity !== room.localParticipant.identity) {
-          console.log('🎧 Received audio from agent:', participant.identity);
-          setIsAgentSpeaking(true);
-          
-          // Play the audio track
-          const audioElement = track.attach();
-          audioElement.onended = () => {
-            setIsAgentSpeaking(false);
-          };
-          document.body.appendChild(audioElement);
-        }
-      });
-
-      // Set up data channel for text messages
-      room.on(RoomEvent.DataReceived, (payload, participant) => {
-        if (participant && participant.identity !== room.localParticipant.identity) {
-          const data = JSON.parse(new TextDecoder().decode(payload));
-          console.log('📨 Received message from agent:', data);
-          
-          if (data.type === 'text') {
-            setAgentResponse(data.text);
-            setConversationHistory(prev => [...prev, { role: 'assistant', text: data.text }]);
-            setTranscript(prev => prev.replace('[Grabando...]', ''));
-          }
-        }
-      });
-
-      // Stop recording after 5 seconds (or implement voice activity detection)
-      setTimeout(() => {
-        if (isRecording) {
-          stopRecording();
-        }
-      }, 5000);
-
-    } catch (error) {
-      console.error('Error starting LiveKit recording:', error);
-      setTranscript(prev => prev.replace('[Grabando...]', 'Error iniciando grabación'));
-      setLoading(false);
-    }
-  };
-
-  const stopRecording = async () => {
-    if (!room) return;
-    
-    try {
-      // Disable microphone
-      await room.localParticipant.setMicrophoneEnabled(false);
-      
-      setIsRecording(false);
-      setLoading(false);
-      console.log('🛑 Recording stopped');
-      
-    } catch (error) {
-      console.error('Error stopping recording:', error);
-    }
-  };
-
   const sendTextMessage = async (message: string) => {
     if (!isConnected || !message.trim()) return;
     
@@ -285,17 +522,16 @@ export const VoiceAgentInterface: React.FC<VoiceAgentInterfaceProps> = ({ onBack
     setConversationHistory(prev => [...prev, { role: 'user', text: message }]);
     
     try {
-      // Create a fake audio blob for text input (we'll process it as text anyway)
-      const formData = new FormData();
-      const textBlob = new Blob([message], { type: 'text/plain' });
-      formData.append('audio', textBlob, 'text-input.txt');
-      formData.append('history', JSON.stringify(conversationHistory));
-      formData.append('step', consultationStep);
-      formData.append('isText', 'true'); // Flag to indicate this is text input
-
-      const response = await fetch('/api/voice/process', {
+      const response = await fetch('/api/voice/continuous', {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userText: message,
+          conversationHistory: conversationHistory,
+          consultationStep: consultationStep,
+          isText: true,
+          sessionId: Date.now().toString()
+        }),
       });
 
       if (!response.ok) {
@@ -304,39 +540,27 @@ export const VoiceAgentInterface: React.FC<VoiceAgentInterfaceProps> = ({ onBack
 
       const result = await response.json();
       
-      // Update UI with results
-      setConversationHistory(prev => [...prev, { role: 'assistant', text: result.response }]);
-      setAgentResponse(result.response);
-      
-      // Check if step is complete
-      if (result.stepComplete) {
-        setShowStepComplete(true);
-        // Store analysis data if available
-        if (result.analysisData) {
-          if (consultationStep === 'patient-input') {
-            setConsultationData(prev => ({ ...prev, patientAnalysis: result.analysisData }));
-          } else if (consultationStep === 'doctor-review') {
-            setConsultationData(prev => ({ ...prev, doctorRecommendations: result.analysisData }));
+      if (result.success) {
+        setConversationHistory(prev => [...prev, { role: 'assistant', text: result.response }]);
+        setAgentResponse(result.response);
+        
+        // Play the AI agent's voice response
+        await playAgentVoice(result.response);
+        
+        if (result.stepComplete) {
+          setShowStepComplete(true);
+          if (result.analysisData) {
+            if (consultationStep === 'patient-input') {
+              setConsultationData(prev => ({ ...prev, patientAnalysis: result.analysisData }));
+            } else if (consultationStep === 'doctor-review') {
+              setConsultationData(prev => ({ ...prev, doctorRecommendations: result.analysisData }));
+            }
           }
+        } else {
+          setConsultationStep(result.nextStep);
         }
       } else {
-        setConsultationStep(result.nextStep);
-      }
-      
-      // Play agent response audio
-      if (result.audioBase64) {
-        const audioBlob = new Blob([Uint8Array.from(atob(result.audioBase64), c => c.charCodeAt(0))], 
-          { type: 'audio/mpeg' });
-        const audioUrl = URL.createObjectURL(audioBlob);
-        const audio = new Audio(audioUrl);
-        
-        setIsAgentSpeaking(true);
-        audio.onended = () => {
-          setIsAgentSpeaking(false);
-          URL.revokeObjectURL(audioUrl);
-        };
-        
-        await audio.play();
+        throw new Error(result.error || 'Error processing message');
       }
 
     } catch (error) {
@@ -350,7 +574,6 @@ export const VoiceAgentInterface: React.FC<VoiceAgentInterfaceProps> = ({ onBack
   const completeCurrentStep = async () => {
     const nextStep = getNextStep(consultationStep);
     
-    // Save current conversation to step history
     setStepHistories(prev => ({
       ...prev,
       [consultationStep]: [...conversationHistory]
@@ -358,104 +581,49 @@ export const VoiceAgentInterface: React.FC<VoiceAgentInterfaceProps> = ({ onBack
     
     setConsultationStep(nextStep);
     setShowStepComplete(false);
-    
-    // Clear conversation history for new step
     setConversationHistory([]);
-    setTranscript('');
     
-    // Generate dynamic summary and start new step
     await generateStepSummary(nextStep);
   };
 
   const generateStepSummary = async (step: string) => {
-    if (step === 'doctor-review') {
-      // Get patient input history for summary
-      const patientHistory = stepHistories['patient-input'];
-      
-      try {
-        const response = await fetch('/api/voice/summary', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            step: step,
-            conversationHistory: patientHistory
-          })
-        });
-
-        if (response.ok) {
-          const result = await response.json();
-          if (result.success) {
-            setConversationHistory([{ role: 'assistant', text: result.summary }]);
-            setAgentResponse(result.summary);
-            
-            // Play summary audio
-            if (result.audioBase64) {
-              const audioBlob = new Blob([Uint8Array.from(atob(result.audioBase64), c => c.charCodeAt(0))],
-                { type: 'audio/mpeg' });
-              const audioUrl = URL.createObjectURL(audioBlob);
-              const audio = new Audio(audioUrl);
-
-              setIsAgentSpeaking(true);
-              audio.onended = () => {
-                setIsAgentSpeaking(false);
-                URL.revokeObjectURL(audioUrl);
-              };
-
-              await audio.play();
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Error generating summary:', error);
-        // Fallback summary
-        const fallbackSummary = "Basándome en la información recopilada, procedo a realizar la evaluación médica. ¿Desea que proceda con el análisis médico?";
-        setConversationHistory([{ role: 'assistant', text: fallbackSummary }]);
-        setAgentResponse(fallbackSummary);
+    const stepMessages = {
+      'doctor-review': {
+        history: stepHistories['patient-input'],
+        fallback: "Basándome en la información recopilada, procedo a realizar la evaluación médica. ¿Desea que proceda con el análisis médico?"
+      },
+      'prescription': {
+        history: stepHistories['doctor-review'],
+        fallback: "Basándome en la evaluación médica realizada, procedo a generar las recomendaciones y prescripción médica. ¿Desea que proceda con la prescripción?"
       }
-    } else if (step === 'prescription') {
-      // Get doctor review history for summary
-      const doctorHistory = stepHistories['doctor-review'];
-      
-      try {
-        const response = await fetch('/api/voice/summary', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            step: step,
-            conversationHistory: doctorHistory
-          })
-        });
+    };
 
-        if (response.ok) {
-          const result = await response.json();
-          if (result.success) {
-            setConversationHistory([{ role: 'assistant', text: result.summary }]);
-            setAgentResponse(result.summary);
-            
-            // Play summary audio
-            if (result.audioBase64) {
-              const audioBlob = new Blob([Uint8Array.from(atob(result.audioBase64), c => c.charCodeAt(0))],
-                { type: 'audio/mpeg' });
-              const audioUrl = URL.createObjectURL(audioBlob);
-              const audio = new Audio(audioUrl);
+    const stepData = stepMessages[step as keyof typeof stepMessages];
+    if (!stepData) return;
 
-              setIsAgentSpeaking(true);
-              audio.onended = () => {
-                setIsAgentSpeaking(false);
-                URL.revokeObjectURL(audioUrl);
-              };
+    try {
+      const response = await fetch('/api/voice/summary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          step: step,
+          conversationHistory: stepData.history
+        })
+      });
 
-              await audio.play();
-            }
-          }
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success) {
+          setConversationHistory([{ role: 'assistant', text: result.summary }]);
+          setAgentResponse(result.summary);
+          await playAgentVoice(result.summary);
         }
-      } catch (error) {
-        console.error('Error generating summary:', error);
-        // Fallback summary
-        const fallbackSummary = "Basándome en la evaluación médica realizada, procedo a generar las recomendaciones y prescripción médica. ¿Desea que proceda con la prescripción?";
-        setConversationHistory([{ role: 'assistant', text: fallbackSummary }]);
-        setAgentResponse(fallbackSummary);
       }
+    } catch (error) {
+      console.error('Error generating summary:', error);
+      setConversationHistory([{ role: 'assistant', text: stepData.fallback }]);
+      setAgentResponse(stepData.fallback);
+      await playAgentVoice(stepData.fallback);
     }
   };
 
@@ -466,22 +634,9 @@ export const VoiceAgentInterface: React.FC<VoiceAgentInterfaceProps> = ({ onBack
       case 'doctor-review':
         return 'prescription';
       case 'prescription':
-        return 'prescription'; // Stay in prescription
+        return 'prescription';
       default:
         return 'patient-input';
-    }
-  };
-
-  const getStepCompletionMessage = (step: string): string => {
-    switch (step) {
-      case 'patient-input':
-        return 'Perfecto, he recopilado toda la información necesaria. Ahora procederé a realizar la evaluación médica.';
-      case 'doctor-review':
-        return 'Excelente, he completado la evaluación médica. Ahora procederé a generar las recomendaciones y prescripción.';
-      case 'prescription':
-        return 'He completado la prescripción médica. Su consulta ha terminado.';
-      default:
-        return 'Paso completado.';
     }
   };
 
@@ -495,6 +650,24 @@ export const VoiceAgentInterface: React.FC<VoiceAgentInterfaceProps> = ({ onBack
         return 'Paso 3: Prescripción';
       default:
         return 'Consulta en progreso';
+    }
+  };
+
+  const getConnectionStatusColor = () => {
+    switch (connectionStatus) {
+      case 'connected': return 'bg-green-500';
+      case 'connecting': return 'bg-yellow-500';
+      case 'error': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getConnectionStatusText = () => {
+    switch (connectionStatus) {
+      case 'connected': return 'Conectado';
+      case 'connecting': return 'Conectando...';
+      case 'error': return 'Error';
+      default: return 'Desconectado';
     }
   };
 
@@ -516,7 +689,6 @@ export const VoiceAgentInterface: React.FC<VoiceAgentInterfaceProps> = ({ onBack
         <h3 className="text-xl font-bold text-gray-900 mb-4">Análisis del Paciente</h3>
         
         <div className="space-y-4">
-          {/* Summary */}
           {analysis.summary && (
             <div>
               <h4 className="font-medium text-gray-700 mb-2">Resumen</h4>
@@ -526,7 +698,6 @@ export const VoiceAgentInterface: React.FC<VoiceAgentInterfaceProps> = ({ onBack
             </div>
           )}
 
-          {/* Key Symptoms */}
           {analysis.keySymptoms && analysis.keySymptoms.length > 0 && (
             <div>
               <h4 className="font-medium text-gray-700 mb-2">Síntomas Principales</h4>
@@ -543,7 +714,6 @@ export const VoiceAgentInterface: React.FC<VoiceAgentInterfaceProps> = ({ onBack
             </div>
           )}
 
-          {/* Potential Concerns */}
           {analysis.potentialConcerns && analysis.potentialConcerns.length > 0 && (
             <div>
               <h4 className="font-medium text-gray-700 mb-2">Preocupaciones Potenciales</h4>
@@ -560,7 +730,6 @@ export const VoiceAgentInterface: React.FC<VoiceAgentInterfaceProps> = ({ onBack
             </div>
           )}
 
-          {/* Recommended Next Steps */}
           {analysis.recommendedNextSteps && analysis.recommendedNextSteps.length > 0 && (
             <div>
               <h4 className="font-medium text-gray-700 mb-2">Próximos Pasos Recomendados</h4>
@@ -572,7 +741,6 @@ export const VoiceAgentInterface: React.FC<VoiceAgentInterfaceProps> = ({ onBack
             </div>
           )}
 
-          {/* Urgency */}
           {analysis.urgency && (
             <div>
               <h4 className="font-medium text-gray-700 mb-2">Nivel de Urgencia</h4>
@@ -582,7 +750,6 @@ export const VoiceAgentInterface: React.FC<VoiceAgentInterfaceProps> = ({ onBack
             </div>
           )}
 
-          {/* Additional Notes */}
           {analysis.notes && (
             <div>
               <h4 className="font-medium text-gray-700 mb-2">Notas Adicionales</h4>
@@ -592,7 +759,6 @@ export const VoiceAgentInterface: React.FC<VoiceAgentInterfaceProps> = ({ onBack
             </div>
           )}
 
-          {/* Disclaimer */}
           {analysis.disclaimer && (
             <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
               <p className="text-sm text-yellow-800">
@@ -613,7 +779,6 @@ export const VoiceAgentInterface: React.FC<VoiceAgentInterfaceProps> = ({ onBack
         <h3 className="text-xl font-bold text-gray-900 mb-4">Recomendaciones de Tratamiento</h3>
         
         <div className="space-y-4">
-          {/* Treatment Plan */}
           {recommendations.treatmentPlan && (
             <div>
               <h4 className="font-medium text-gray-700 mb-2">Recomendaciones Principales</h4>
@@ -625,7 +790,6 @@ export const VoiceAgentInterface: React.FC<VoiceAgentInterfaceProps> = ({ onBack
             </div>
           )}
 
-          {/* Medications */}
           {recommendations.medications && recommendations.medications.length > 0 && (
             <div>
               <h4 className="font-medium text-gray-700 mb-2">Medicamentos Sugeridos</h4>
@@ -645,7 +809,6 @@ export const VoiceAgentInterface: React.FC<VoiceAgentInterfaceProps> = ({ onBack
             </div>
           )}
 
-          {/* Lifestyle Recommendations */}
           {recommendations.lifestyleRecommendations && recommendations.lifestyleRecommendations.length > 0 && (
             <div>
               <h4 className="font-medium text-gray-700 mb-2">Recomendaciones de Estilo de Vida</h4>
@@ -657,7 +820,6 @@ export const VoiceAgentInterface: React.FC<VoiceAgentInterfaceProps> = ({ onBack
             </div>
           )}
 
-          {/* Follow-up */}
           {recommendations.followUp && (
             <div>
               <h4 className="font-medium text-gray-700 mb-2">Seguimiento</h4>
@@ -667,7 +829,6 @@ export const VoiceAgentInterface: React.FC<VoiceAgentInterfaceProps> = ({ onBack
             </div>
           )}
 
-          {/* Warnings */}
           {recommendations.warnings && recommendations.warnings.length > 0 && (
             <div>
               <h4 className="font-medium text-gray-700 mb-2">Advertencias</h4>
@@ -692,7 +853,7 @@ export const VoiceAgentInterface: React.FC<VoiceAgentInterfaceProps> = ({ onBack
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
             <div className="flex items-center">
-              <h1 className="text-2xl font-bold text-gray-900">Consulta Médica con Agente de Voz IA</h1>
+              <h1 className="text-2xl font-bold text-gray-900">Consulta Médica con IA</h1>
               <span className="ml-4 px-3 py-1 text-sm bg-green-100 text-green-800 rounded-full">
                 {getStepDescription()}
               </span>
@@ -721,7 +882,7 @@ export const VoiceAgentInterface: React.FC<VoiceAgentInterfaceProps> = ({ onBack
                   className="flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
                 >
                   <PhoneOff className="w-4 h-4 mr-2" />
-                  Desconectar
+                  Finalizar
                 </button>
               )}
             </div>
@@ -769,51 +930,91 @@ export const VoiceAgentInterface: React.FC<VoiceAgentInterfaceProps> = ({ onBack
         )}
         
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Voice Controls */}
+          {/* Voice Status Panel */}
           <div className="lg:col-span-1">
             <div className="bg-white rounded-lg shadow-lg p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-6">Controles de Voz</h2>
+              <h2 className="text-xl font-semibold text-gray-900 mb-6">Estado de la Voz</h2>
               
               {/* Connection Status */}
               <div className="mb-6">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-700">Estado de Conexión</span>
-                  <span className={`px-2 py-1 text-xs rounded-full ${
-                    isConnected ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                  }`}>
-                    {isConnected ? 'Conectado' : 'Desconectado'}
-                  </span>
+                  <span className="text-sm font-medium text-gray-700">Conexión</span>
+                  <div className="flex items-center space-x-2">
+                    <div className={`w-3 h-3 rounded-full ${getConnectionStatusColor()} animate-pulse`}></div>
+                    <span className="text-sm text-gray-600">{getConnectionStatusText()}</span>
+                  </div>
+                </div>
+                {errorMessage && (
+                  <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-md">
+                    <p className="text-xs text-red-800">{errorMessage}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Voice Activity Indicator */}
+              <div className="mb-6">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-700">Actividad de Voz</span>
+                  <div className="flex items-center space-x-2">
+                    {isRecording && (
+                      <div className="flex items-center space-x-1">
+                        <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                        <span className="text-xs text-red-600">Grabando</span>
+                      </div>
+                    )}
+                    {isUserSpeaking && !isRecording && (
+                      <div className="flex items-center space-x-1">
+                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                        <span className="text-xs text-green-600">Hablando</span>
+                      </div>
+                    )}
+                    {isAgentSpeaking && (
+                      <div className="flex items-center space-x-1">
+                        <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                        <span className="text-xs text-blue-600">IA Respondiendo</span>
+                      </div>
+                    )}
+                    {isConnected && !isUserSpeaking && !isAgentSpeaking && !isProcessing && !isRecording && (
+                      <div className="flex items-center space-x-1">
+                        <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
+                        <span className="text-xs text-yellow-600">Escuchando</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Audio Level Visualizer */}
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div 
+                    className="bg-gradient-to-r from-green-400 to-blue-500 h-2 rounded-full transition-all duration-100"
+                    style={{ width: `${(audioLevel / 255) * 100}%` }}
+                  ></div>
+                </div>
+                
+                {/* Status Message */}
+                <div className="mt-2 text-xs text-gray-500 text-center">
+                  {isConnected ? 
+                    (isRecording ? "🎤 Grabando voz..." :
+                     isUserSpeaking ? "Detectando voz..." :
+                     isAgentSpeaking ? "IA procesando respuesta..." :
+                     isProcessing ? "Procesando consulta..." :
+                     "Hable libremente - La IA detectará automáticamente su voz") :
+                    "Conecte para comenzar la consulta de voz."
+                  }
                 </div>
               </div>
 
-              {/* Voice Recording Controls */}
-              <div className="space-y-4">
-                <button
-                  onClick={startRecording}
-                  disabled={!isConnected || isRecording || loading}
-                  className="w-full flex items-center justify-center px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isRecording ? (
-                    <>
-                      <MicOff className="w-5 h-5 mr-2 animate-pulse" />
-                      Grabando...
-                    </>
-                  ) : (
-                    <>
-                      <Mic className="w-5 h-5 mr-2" />
-                      Hablar
-                    </>
-                  )}
-                </button>
-
+              {/* Voice Controls */}
+              <div className="space-y-3">
                 <button
                   onClick={toggleMute}
-                  className="w-full flex items-center justify-center px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                  disabled={!isConnected}
+                  className="w-full flex items-center justify-center px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isMuted ? (
                     <>
                       <VolumeX className="w-4 h-4 mr-2" />
-                      Desactivar Silencio
+                      Activar Micrófono
                     </>
                   ) : (
                     <>
@@ -822,39 +1023,38 @@ export const VoiceAgentInterface: React.FC<VoiceAgentInterfaceProps> = ({ onBack
                     </>
                   )}
                 </button>
-              </div>
 
-              {/* Agent Status */}
-              <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-                <h3 className="text-sm font-medium text-gray-700 mb-2">Estado del Agente</h3>
-                <div className="flex items-center space-x-2">
-                  <div className={`w-2 h-2 rounded-full ${
-                    isAgentSpeaking ? 'bg-green-500 animate-pulse' : 'bg-gray-400'
-                  }`}></div>
-                  <span className="text-sm text-gray-600">
-                    {isAgentSpeaking ? 'Hablando...' : 'Esperando'}
-                  </span>
+                <div className="text-xs text-gray-500 text-center">
+                  {isConnected ? 
+                    "Hable libremente - La IA detectará automáticamente su voz." :
+                    "Conecte para comenzar la consulta de voz."
+                  }
                 </div>
               </div>
+
+              {/* Processing Status */}
+              {isProcessing && (
+                <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                  <div className="flex items-center space-x-2">
+                    <div className="flex space-x-1">
+                      <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce"></div>
+                      <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                      <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                    </div>
+                    <span className="text-sm text-blue-800">Procesando...</span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
           {/* Chat Interface */}
           <div className="lg:col-span-2">
-            {/* Analysis Display for Steps 2 and 3 */}
-            {consultationStep === 'doctor-review' && consultationData.patientAnalysis && (
-              <PatientAnalysisDisplay analysis={consultationData.patientAnalysis} />
-            )}
-            
-            {consultationStep === 'prescription' && consultationData.doctorRecommendations && (
-              <DoctorRecommendationsDisplay recommendations={consultationData.doctorRecommendations} />
-            )}
-            
             <div className="bg-white rounded-lg shadow-lg h-[600px] flex flex-col">
               {/* Chat Header */}
-              <div className="p-4 border-b">
+              <div className="p-4 border-b bg-gray-50">
                 <h2 className="text-xl font-semibold text-gray-900">Conversación Médica</h2>
-                <p className="text-sm text-gray-600">Agente de IA en español</p>
+                <p className="text-sm text-gray-600">Asistente de IA en español - Conversación continua</p>
               </div>
 
               {/* Chat Messages */}
@@ -863,6 +1063,7 @@ export const VoiceAgentInterface: React.FC<VoiceAgentInterfaceProps> = ({ onBack
                   <div className="text-center text-gray-500 py-8">
                     <MessageSquare className="w-12 h-12 mx-auto mb-4 text-gray-300" />
                     <p>Haz clic en &quot;Iniciar Consulta&quot; para comenzar</p>
+                    <p className="text-sm mt-2">Puede hablar libremente o escribir mensajes</p>
                   </div>
                 ) : (
                   conversationHistory.map((message, index) => (
@@ -870,14 +1071,26 @@ export const VoiceAgentInterface: React.FC<VoiceAgentInterfaceProps> = ({ onBack
                       key={index}
                       className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                     >
-                      <div
-                        className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                          message.role === 'user'
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-gray-100 text-gray-900'
-                        }`}
-                      >
-                        <p className="text-sm">{message.text}</p>
+                      <div className="flex items-start space-x-2 max-w-xs lg:max-w-md">
+                        {message.role === 'assistant' && (
+                          <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                            <Bot className="w-3 h-3 text-white" />
+                          </div>
+                        )}
+                        <div
+                          className={`px-4 py-2 rounded-lg ${
+                            message.role === 'user'
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-gray-100 text-gray-900'
+                          }`}
+                        >
+                          <p className="text-sm">{message.text}</p>
+                        </div>
+                        {message.role === 'user' && (
+                          <div className="w-6 h-6 bg-gray-500 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                            <User className="w-3 h-3 text-white" />
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))
@@ -885,14 +1098,19 @@ export const VoiceAgentInterface: React.FC<VoiceAgentInterfaceProps> = ({ onBack
                 
                 {loading && (
                   <div className="flex justify-start">
-                    <div className="bg-gray-100 text-gray-900 px-4 py-2 rounded-lg">
-                      <div className="flex items-center space-x-2">
-                        <div className="flex space-x-1">
-                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                    <div className="flex items-start space-x-2">
+                      <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                        <Bot className="w-3 h-3 text-white" />
+                      </div>
+                      <div className="bg-gray-100 text-gray-900 px-4 py-2 rounded-lg">
+                        <div className="flex items-center space-x-2">
+                          <div className="flex space-x-1">
+                            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                          </div>
+                          <span className="text-sm">Procesando...</span>
                         </div>
-                        <span className="text-sm">Procesando...</span>
                       </div>
                     </div>
                   </div>
@@ -901,26 +1119,26 @@ export const VoiceAgentInterface: React.FC<VoiceAgentInterfaceProps> = ({ onBack
 
               {/* Step Completion Notification */}
               {showStepComplete && (
-                <div className="p-4 border-t bg-blue-50">
+                <div className="p-4 border-t bg-green-50">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
+                      <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center">
                         <CheckCircle className="w-5 h-5 text-white" />
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-blue-900">
+                        <p className="text-sm font-medium text-green-900">
                           Paso completado
                         </p>
-                        <p className="text-xs text-blue-700">
+                        <p className="text-xs text-green-700">
                           {getStepDescription()} - Listo para continuar
                         </p>
                       </div>
                     </div>
                     <button
                       onClick={completeCurrentStep}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
                     >
-                      Continuar al Siguiente Paso
+                      Continuar
                     </button>
                   </div>
                 </div>
@@ -953,7 +1171,7 @@ export const VoiceAgentInterface: React.FC<VoiceAgentInterfaceProps> = ({ onBack
                 <div className="flex space-x-2">
                   <input
                     type="text"
-                    placeholder="Escriba su mensaje aquí..."
+                    placeholder="Escriba su mensaje aquí o hable libremente..."
                     className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     onKeyPress={(e) => {
                       if (e.key === 'Enter') {
@@ -979,6 +1197,9 @@ export const VoiceAgentInterface: React.FC<VoiceAgentInterfaceProps> = ({ onBack
                     Enviar
                   </button>
                 </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  Presione Enter para enviar o hable directamente al micrófono
+                </p>
               </div>
             </div>
           </div>
