@@ -28,16 +28,17 @@ export async function POST(req: NextRequest) {
       headers: {
         'Authorization': `Bearer ${apiKey}:${apiSecret}`,
         'Content-Type': 'application/json',
+        'X-LiveKit-Agent': 'true'
       },
       body: JSON.stringify({
         name: 'medical-consultation-agent',
         room_name: roomName,
         participant_name: participantName,
-        metadata: {
+        metadata: JSON.stringify({
           agent_type: 'medical_consultation',
           language: 'es',
           consultation_step: 'patient_input'
-        }
+        })
       })
     })
 

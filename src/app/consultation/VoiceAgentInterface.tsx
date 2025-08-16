@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Room, RoomEvent, RemoteParticipant, LocalParticipant, DataPacket_Kind } from 'livekit-client';
+import { Room, RoomEvent, RemoteParticipant, LocalParticipant, DataPacket_Kind, Track } from 'livekit-client';
 import { Mic, MicOff, Phone, PhoneOff, MessageSquare, Volume2, VolumeX, Play, Pause, CheckCircle } from 'lucide-react';
 import { ConversationMessage } from '@/types';
 
@@ -102,29 +102,7 @@ export const VoiceAgentInterface: React.FC<VoiceAgentInterfaceProps> = ({ onBack
       const token = await generateRoomToken();
       console.log('🎫 Room token generated successfully');
       
-      // Create agent job
-      const roomName = 'medical-consultation-' + Date.now();
-      const participantName = 'patient-' + Math.random().toString(36).substr(2, 9);
-      
-      const agentJobResponse = await fetch('/api/livekit/agent-job', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          roomName,
-          participantName,
-        }),
-      });
-
-      if (!agentJobResponse.ok) {
-        throw new Error('Failed to create agent job');
-      }
-
-      const agentJob = await agentJobResponse.json();
-      console.log('🤖 Agent job created:', agentJob);
-      
-      // Connect to the room
+      // Connect to the room (agent will automatically join as it's already running)
       await room.connect(LIVEKIT_URL, token);
       console.log('✅ Connected to LiveKit room');
       
@@ -226,7 +204,7 @@ export const VoiceAgentInterface: React.FC<VoiceAgentInterfaceProps> = ({ onBack
   };
 
   const startRecording = async () => {
-    if (!isConnected) return;
+    if (!isConnected || !room) return;
     
     try {
       setIsRecording(true);
@@ -235,93 +213,68 @@ export const VoiceAgentInterface: React.FC<VoiceAgentInterfaceProps> = ({ onBack
 
       // Get user media (microphone access)
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
-      const audioChunks: Blob[] = [];
-
-      mediaRecorder.ondataavailable = (event) => {
-        audioChunks.push(event.data);
-      };
-
-      mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-        
-        // Send audio to voice processing API
-        const formData = new FormData();
-        formData.append('audio', audioBlob, 'recording.wav');
-        formData.append('history', JSON.stringify(conversationHistory));
-        formData.append('step', consultationStep);
-
-        try {
-          const response = await fetch('/api/voice/process', {
-            method: 'POST',
-            body: formData,
-          });
-
-          if (!response.ok) {
-            throw new Error('Failed to process voice');
-          }
-
-          const result = await response.json();
+      
+      // Enable microphone for LiveKit room
+      await room.localParticipant.setMicrophoneEnabled(true);
+      
+      console.log('🎤 Audio track published to LiveKit room');
+      
+      // Set up audio track event listeners for agent responses
+      room.on(RoomEvent.TrackSubscribed, (track, publication, participant) => {
+        if (track.kind === Track.Kind.Audio && participant.identity !== room.localParticipant.identity) {
+          console.log('🎧 Received audio from agent:', participant.identity);
+          setIsAgentSpeaking(true);
           
-          // Update UI with results
-          setTranscript(prev => prev.replace('[Grabando...]', result.transcript));
-          setConversationHistory(prev => [...prev, 
-            { role: 'user', text: result.transcript },
-            { role: 'assistant', text: result.response }
-          ]);
-          setAgentResponse(result.response);
-          
-          // Check if step is complete
-          if (result.stepComplete) {
-            setShowStepComplete(true);
-          } else {
-            setConsultationStep(result.nextStep);
-          }
-          
-          // Play agent response audio
-          if (result.audioBase64) {
-            const audioBlob = new Blob([Uint8Array.from(atob(result.audioBase64), c => c.charCodeAt(0))], 
-              { type: 'audio/mpeg' });
-            const audioUrl = URL.createObjectURL(audioBlob);
-            const audio = new Audio(audioUrl);
-            
-            setIsAgentSpeaking(true);
-            audio.onended = () => {
-              setIsAgentSpeaking(false);
-              URL.revokeObjectURL(audioUrl);
-            };
-            
-            await audio.play();
-          }
-
-        } catch (error) {
-          console.error('Error processing voice:', error);
-          setTranscript(prev => prev.replace('[Grabando...]', 'Error procesando audio'));
-        } finally {
-          setLoading(false);
+          // Play the audio track
+          const audioElement = track.attach();
+          audioElement.onended = () => {
+            setIsAgentSpeaking(false);
+          };
+          document.body.appendChild(audioElement);
         }
+      });
 
-        // Clean up
-        stream.getTracks().forEach(track => track.stop());
-      };
+      // Set up data channel for text messages
+      room.on(RoomEvent.DataReceived, (payload, participant) => {
+        if (participant && participant.identity !== room.localParticipant.identity) {
+          const data = JSON.parse(new TextDecoder().decode(payload));
+          console.log('📨 Received message from agent:', data);
+          
+          if (data.type === 'text') {
+            setAgentResponse(data.text);
+            setConversationHistory(prev => [...prev, { role: 'assistant', text: data.text }]);
+            setTranscript(prev => prev.replace('[Grabando...]', ''));
+          }
+        }
+      });
 
-      // Start recording
-      mediaRecorder.start();
-
-      // Stop recording after 5 seconds
-      //Hay que cambiar esto para que sea mas dinamico
+      // Stop recording after 5 seconds (or implement voice activity detection)
       setTimeout(() => {
-        if (mediaRecorder.state === 'recording') {
-          mediaRecorder.stop();
-          setIsRecording(false);
+        if (isRecording) {
+          stopRecording();
         }
       }, 5000);
 
     } catch (error) {
-      console.error('Error accessing microphone:', error);
-      setTranscript(prev => prev.replace('[Grabando...]', 'Error accediendo al micrófono'));
+      console.error('Error starting LiveKit recording:', error);
+      setTranscript(prev => prev.replace('[Grabando...]', 'Error iniciando grabación'));
+      setLoading(false);
+    }
+  };
+
+  const stopRecording = async () => {
+    if (!room) return;
+    
+    try {
+      // Disable microphone
+      await room.localParticipant.setMicrophoneEnabled(false);
+      
       setIsRecording(false);
       setLoading(false);
+      console.log('🛑 Recording stopped');
+      
+    } catch (error) {
+      console.error('Error stopping recording:', error);
     }
   };
 

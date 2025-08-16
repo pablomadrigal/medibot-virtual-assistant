@@ -153,10 +153,11 @@ Current feature-to-task mapping:
 | `core-setup` | 1, 2.1 | Project structure and Supabase environment | ✅ Completed |
 | `database-layer` | 2.2, 2.3, 2.4 | Patient, Anamnesis, and Consultation models | ✅ Completed |
 | `backend-api` | 3, 4 | Authentication and core API services | ✅ Completed |
-| `conversational-ai` | 5, 6 | AI conversation system and NLP processing | 🔄 Next |
-| `patient-interface` | 7 | React chat UI and accessibility features | 📋 Planned |
-| `doctor-interface` | 8 | Doctor dashboard and consultation management | 📋 Planned |
-| `livekit-integration` | 9 | Video consultation features | 🔄 Partially Implemented |
+| `conversational-ai` | 5, 6 | AI conversation system and NLP processing | ✅ Completed |
+| `patient-interface` | 7 | React chat UI and accessibility features | ✅ Completed |
+| `doctor-interface` | 8 | Doctor dashboard and consultation management | ✅ Completed |
+| `livekit-integration` | 9 | LiveKit voice agent and real-time communication | 🔄 In Progress |
+| `voice-processing` | 10 | Advanced voice processing and medical analysis | 📋 Planned |
 
 ## Prerequisites
 
