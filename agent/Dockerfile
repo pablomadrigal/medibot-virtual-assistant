@@ -18,13 +18,13 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy agent code
 COPY . .
 
+# Download model files as root (before creating user)
+RUN python medical_agent.py download-files
+
 # Create non-root user for security
 RUN useradd --create-home --shell /bin/bash agent && \
     chown -R agent:agent /app
 USER agent
-
-# Download model files on startup
-RUN python medical_agent.py download-files
 
 # Expose port (if needed for health checks)
 EXPOSE 8080
