@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { ConsultationFlow } from './ConsultationFlow';
-import { VoiceAgentInterface } from './VoiceAgentInterface';
+import { IntegratedVoiceChat } from './IntegratedVoiceChat';
 import { Mic, FileText } from 'lucide-react';
 
 type ConsultationMode = 'form' | 'voice';
@@ -15,7 +15,7 @@ export default function ConsultationPage() {
   }
 
   if (mode === 'voice') {
-    return <VoiceAgentInterface onBack={() => setMode(null)} />;
+    return <IntegratedVoiceChat onBack={() => setMode(null)} />;
   }
 
   return (

@@ -71,6 +71,7 @@ export async function POST(request: NextRequest) {
     
     const {
       audioData,
+      audioMimeType = 'audio/webm',
       conversationHistory = [],
       consultationStep = 'patient-input',
       isText = false,
@@ -105,11 +106,14 @@ export async function POST(request: NextRequest) {
         // Convert base64 audio to buffer
         const audioBuffer = Buffer.from(audioData, 'base64');
         
-        // Create a temporary file-like object for OpenAI
-        const audioFile = new Blob([audioBuffer], { type: 'audio/wav' });
+        // Use the MIME type provided by the frontend
+        const audioFile = new Blob([audioBuffer], { type: audioMimeType });
         
-        // Convert to File object
-        const file = new File([audioFile], 'audio.wav', { type: 'audio/wav' });
+        // Convert to File object with appropriate extension
+        const fileExtension = audioMimeType.includes('webm') ? 'webm' : 
+                             audioMimeType.includes('mp4') ? 'mp4' : 
+                             audioMimeType.includes('ogg') ? 'ogg' : 'wav';
+        const file = new File([audioFile], `audio.${fileExtension}`, { type: audioMimeType });
         
         // Transcribe using Whisper
         const openai = getOpenAI();
