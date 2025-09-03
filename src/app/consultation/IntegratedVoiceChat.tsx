@@ -1,32 +1,41 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
-import { 
+import {
+  useState,
+  FC,
+  useEffect,
+  useRef
+} from 'react';
+import {
   LiveKitRoom,
-  useIsSpeaking, 
-  useLocalParticipant, 
-  useParticipants,
+  useIsSpeaking,
+  useLocalParticipant,
   useConnectionState,
   useSpeakingParticipants,
-  useDataChannel,
-  useRoomContext
 } from '@livekit/components-react';
 import { Track } from 'livekit-client';
-import { Phone, PhoneOff, MessageSquare, CheckCircle, User, Bot, Mic, MicOff } from 'lucide-react';
+import {
+  Phone,
+  PhoneOff,
+  MessageSquare,
+  CheckCircle,
+  User,
+  Bot,
+  Mic,
+  MicOff
+} from 'lucide-react';
 import { ConversationMessage } from '@/types';
 
 interface IntegratedVoiceChatProps {
   onBack?: () => void;
 }
 
-const VoiceChatContent: React.FC<IntegratedVoiceChatProps> = ({ onBack }) => {
+const VoiceChatContent: FC<IntegratedVoiceChatProps> = ({ onBack }) => {
   const { localParticipant } = useLocalParticipant();
-  const participants = useParticipants();
   const connectionState = useConnectionState();
   const isSpeaking = useIsSpeaking(localParticipant);
   const speakingParticipants = useSpeakingParticipants();
-  const room = useRoomContext();
-  
+
   const [isConnected, setIsConnected] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isAgentSpeaking, setIsAgentSpeaking] = useState(false);
@@ -37,7 +46,7 @@ const VoiceChatContent: React.FC<IntegratedVoiceChatProps> = ({ onBack }) => {
   const [consultationStep, setConsultationStep] = useState<'patient-input' | 'doctor-review' | 'prescription'>('patient-input');
   const [loading, setLoading] = useState(false);
   const [token, setToken] = useState<string>('');
-  
+
   const chatRef = useRef<HTMLDivElement>(null);
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
 
@@ -62,7 +71,7 @@ const VoiceChatContent: React.FC<IntegratedVoiceChatProps> = ({ onBack }) => {
     const handleVoiceActivity = async () => {
       // Check if local participant is speaking
       const isLocalSpeaking = speakingParticipants.some(p => p.identity === localParticipant.identity);
-      
+
       if (isLocalSpeaking && !isProcessing) {
         // Start processing when user starts speaking
         await processVoiceInput();
@@ -76,7 +85,7 @@ const VoiceChatContent: React.FC<IntegratedVoiceChatProps> = ({ onBack }) => {
   const playAgentVoice = async (text: string) => {
     try {
       setIsAgentSpeaking(true);
-      
+
       const response = await fetch('/api/voice/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -88,35 +97,35 @@ const VoiceChatContent: React.FC<IntegratedVoiceChatProps> = ({ onBack }) => {
       }
 
       const result = await response.json();
-      
+
       if (result.success && result.audioBase64) {
         const audioData = atob(result.audioBase64);
         const audioArray = new Uint8Array(audioData.length);
         for (let i = 0; i < audioData.length; i++) {
           audioArray[i] = audioData.charCodeAt(i);
         }
-        
+
         const audioBlob = new Blob([audioArray], { type: 'audio/mpeg' });
         const audioUrl = URL.createObjectURL(audioBlob);
-        
+
         if (audioPlayerRef.current) {
           audioPlayerRef.current.pause();
         }
-        
+
         const audio = new Audio(audioUrl);
         audioPlayerRef.current = audio;
-        
+
         audio.onended = () => {
           setIsAgentSpeaking(false);
           URL.revokeObjectURL(audioUrl);
         };
-        
+
         audio.onerror = () => {
           setIsAgentSpeaking(false);
           URL.revokeObjectURL(audioUrl);
           console.error('Error playing audio');
         };
-        
+
         await audio.play();
       } else {
         setIsAgentSpeaking(false);
@@ -132,17 +141,17 @@ const VoiceChatContent: React.FC<IntegratedVoiceChatProps> = ({ onBack }) => {
     try {
       setLoading(true);
       setErrorMessage('');
-      
+
       const generatedToken = await generateRoomToken();
       setToken(generatedToken);
-      
+
       setLoading(false);
-      
+
       // Initial greeting will be handled after connection
       const greeting = "Hola, soy su asistente médico virtual. Estoy aquí para ayudarle con su consulta. ¿Cuáles son sus síntomas principales?";
       setConversationHistory(prev => [...prev, { role: 'assistant', text: greeting }]);
       await playAgentVoice(greeting);
-      
+
     } catch (error) {
       console.error('Failed to connect to room:', error);
       setLoading(false);
@@ -153,11 +162,11 @@ const VoiceChatContent: React.FC<IntegratedVoiceChatProps> = ({ onBack }) => {
   const processVoiceInput = async () => {
     try {
       setIsProcessing(true);
-      
+
       // Get the current microphone stream from LiveKit
       const microphonePublication = localParticipant?.getTrackPublication(Track.Source.Microphone);
       const stream = microphonePublication?.track?.mediaStream;
-      
+
       if (!stream) {
         console.error('No microphone stream available');
         setIsProcessing(false);
@@ -165,33 +174,33 @@ const VoiceChatContent: React.FC<IntegratedVoiceChatProps> = ({ onBack }) => {
       }
 
       // Create a MediaRecorder to capture the audio
-      const mediaRecorder = new MediaRecorder(stream, { 
-        mimeType: MediaRecorder.isTypeSupported('audio/webm;codecs=opus') 
-          ? 'audio/webm;codecs=opus' 
-          : 'audio/webm' 
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+          ? 'audio/webm;codecs=opus'
+          : 'audio/webm'
       });
-      
+
       const audioChunks: Blob[] = [];
-      
+
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
           audioChunks.push(event.data);
         }
       };
-      
+
       mediaRecorder.onstop = async () => {
         if (audioChunks.length > 0) {
           const audioBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType });
           await processAudioBlob(audioBlob, mediaRecorder.mimeType);
         }
       };
-      
+
       // Record for a short duration to capture the voice input
       mediaRecorder.start();
       setTimeout(() => {
         mediaRecorder.stop();
       }, 1000); // Record for 1 second
-      
+
     } catch (error) {
       console.error('Error processing voice input:', error);
       setIsProcessing(false);
@@ -210,9 +219,9 @@ const VoiceChatContent: React.FC<IntegratedVoiceChatProps> = ({ onBack }) => {
         reader.onerror = reject;
         reader.readAsDataURL(audioBlob);
       });
-      
+
       console.log('📤 Sending conversation history:', conversationHistory);
-      
+
       const response = await fetch('/api/voice/continuous', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -231,23 +240,23 @@ const VoiceChatContent: React.FC<IntegratedVoiceChatProps> = ({ onBack }) => {
       }
 
       const result = await response.json();
-      
+
       console.log('📥 Received response:', result);
-      
+
       if (result.success) {
         // Update conversation history atomically to ensure proper order
         setConversationHistory(prev => {
           const newHistory = [
-            ...prev, 
+            ...prev,
             { role: 'user' as const, text: result.transcript },
             { role: 'assistant' as const, text: result.response }
           ];
           console.log('🔄 Updated conversation history:', newHistory);
           return newHistory;
         });
-        
+
         await playAgentVoice(result.response);
-        
+
         if (result.stepComplete) {
           setShowStepComplete(true);
         } else {
@@ -270,7 +279,7 @@ const VoiceChatContent: React.FC<IntegratedVoiceChatProps> = ({ onBack }) => {
     setConsultationStep('patient-input');
     setConversationHistory([]);
     setErrorMessage('');
-    
+
     if (audioPlayerRef.current) {
       audioPlayerRef.current.pause();
       audioPlayerRef.current = null;
@@ -279,7 +288,7 @@ const VoiceChatContent: React.FC<IntegratedVoiceChatProps> = ({ onBack }) => {
 
   const toggleMute = async () => {
     if (!localParticipant) return;
-    
+
     try {
       if (isMuted) {
         await localParticipant.setMicrophoneEnabled(true);
@@ -297,7 +306,7 @@ const VoiceChatContent: React.FC<IntegratedVoiceChatProps> = ({ onBack }) => {
     try {
       const roomName = 'medical-consultation-' + Date.now();
       const participantName = 'patient-' + Math.random().toString(36).substr(2, 9);
-      
+
       const response = await fetch('/api/livekit/token', {
         method: 'POST',
         headers: {
@@ -323,12 +332,12 @@ const VoiceChatContent: React.FC<IntegratedVoiceChatProps> = ({ onBack }) => {
 
   const sendTextMessage = async (message: string) => {
     if (!isConnected || !message.trim()) return;
-    
+
     setLoading(true);
-    
+
     try {
       console.log('📤 Sending text message with history:', conversationHistory);
-      
+
       const response = await fetch('/api/voice/continuous', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -346,17 +355,17 @@ const VoiceChatContent: React.FC<IntegratedVoiceChatProps> = ({ onBack }) => {
       }
 
       const result = await response.json();
-      
+
       if (result.success) {
         // Update conversation history atomically to ensure proper order
         setConversationHistory(prev => [
-          ...prev, 
+          ...prev,
           { role: 'user' as const, text: message },
           { role: 'assistant' as const, text: result.response }
         ]);
-        
+
         await playAgentVoice(result.response);
-        
+
         if (result.stepComplete) {
           setShowStepComplete(true);
         } else {
@@ -446,21 +455,18 @@ const VoiceChatContent: React.FC<IntegratedVoiceChatProps> = ({ onBack }) => {
           <div className="py-4">
             <div className="flex items-center">
               <div className={`flex-1 h-2 rounded-full ${consultationStep === 'patient-input' ? 'bg-blue-600' : 'bg-gray-200'}`}></div>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium mx-2 ${
-                consultationStep === 'patient-input' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'
-              }`}>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium mx-2 ${consultationStep === 'patient-input' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'
+                }`}>
                 1
               </div>
               <div className={`flex-1 h-2 rounded-full ${consultationStep === 'doctor-review' ? 'bg-blue-600' : 'bg-gray-200'}`}></div>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium mx-2 ${
-                consultationStep === 'doctor-review' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'
-              }`}>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium mx-2 ${consultationStep === 'doctor-review' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'
+                }`}>
                 2
               </div>
               <div className={`flex-1 h-2 rounded-full ${consultationStep === 'prescription' ? 'bg-blue-600' : 'bg-gray-200'}`}></div>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium mx-2 ${
-                consultationStep === 'prescription' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'
-              }`}>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium mx-2 ${consultationStep === 'prescription' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'
+                }`}>
                 3
               </div>
             </div>
@@ -478,16 +484,16 @@ const VoiceChatContent: React.FC<IntegratedVoiceChatProps> = ({ onBack }) => {
                 <h2 className="text-xl font-semibold text-gray-900">Conversación Médica</h2>
                 <p className="text-sm text-gray-600">Asistente de IA en español - Voz y texto integrados</p>
               </div>
-              
+
               {/* Voice Status Indicators */}
               <div className="flex items-center space-x-4">
                 {/* Connection Status */}
                 <div className="flex items-center space-x-2">
                   <div className={`w-3 h-3 rounded-full ${getConnectionStatusColor()} animate-pulse`}></div>
                   <span className="text-sm text-gray-600">
-                    {connectionState === 'connected' ? 'Conectado' : 
-                     connectionState === 'connecting' ? 'Conectando...' : 
-                     connectionState === 'disconnected' ? 'Desconectado' : 'Error'}
+                    {connectionState === 'connected' ? 'Conectado' :
+                      connectionState === 'connecting' ? 'Conectando...' :
+                        connectionState === 'disconnected' ? 'Desconectado' : 'Error'}
                   </span>
                 </div>
 
@@ -519,11 +525,10 @@ const VoiceChatContent: React.FC<IntegratedVoiceChatProps> = ({ onBack }) => {
                 {isConnected && (
                   <button
                     onClick={toggleMute}
-                    className={`p-2 rounded-lg transition-colors ${
-                      isMuted 
-                        ? 'bg-red-100 text-red-600 hover:bg-red-200' 
-                        : 'bg-green-100 text-green-600 hover:bg-green-200'
-                    }`}
+                    className={`p-2 rounded-lg transition-colors ${isMuted
+                      ? 'bg-red-100 text-red-600 hover:bg-red-200'
+                      : 'bg-green-100 text-green-600 hover:bg-green-200'
+                      }`}
                     title={isMuted ? 'Activar micrófono' : 'Silenciar micrófono'}
                   >
                     {isMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
@@ -561,11 +566,10 @@ const VoiceChatContent: React.FC<IntegratedVoiceChatProps> = ({ onBack }) => {
                       </div>
                     )}
                     <div
-                      className={`px-4 py-2 rounded-lg ${
-                        message.role === 'user'
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-gray-100 text-gray-900'
-                      }`}
+                      className={`px-4 py-2 rounded-lg ${message.role === 'user'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-100 text-gray-900'
+                        }`}
                     >
                       <p className="text-sm">{message.text}</p>
                     </div>
@@ -578,7 +582,7 @@ const VoiceChatContent: React.FC<IntegratedVoiceChatProps> = ({ onBack }) => {
                 </div>
               ))
             )}
-            
+
             {loading && (
               <div className="flex justify-start">
                 <div className="flex items-start space-x-2">
@@ -689,7 +693,7 @@ const VoiceChatContent: React.FC<IntegratedVoiceChatProps> = ({ onBack }) => {
   );
 };
 
-export const IntegratedVoiceChat: React.FC<IntegratedVoiceChatProps> = ({ onBack }) => {
+export const IntegratedVoiceChat: FC<IntegratedVoiceChatProps> = ({ onBack }) => {
   return (
     <LiveKitRoom
       serverUrl={process.env.NEXT_PUBLIC_LIVEKIT_URL || 'wss://your-livekit-server.com'}
